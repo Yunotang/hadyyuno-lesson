@@ -1,0 +1,76 @@
+13:  lesson: Lesson;
+18:export function LessonView({ lesson, editMode, onUpdateLesson }: LessonViewProps) {
+28:  const normalizedSteps = lesson.steps && lesson.steps.length > 0 ? lesson.steps : [{
+30:    title: lesson.flowTitle || '單元內容',
+31:    slides: lesson.slides || [],
+32:    urls: lesson.urls || [],
+33:    commands: lesson.commands || [],
+34:    prompts: lesson.prompts || [],
+35:    flowMarkdown: lesson.flowMarkdown || '',
+36:    enabledTabs: lesson.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'],
+37:    tabOrder: lesson.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'],
+38:    flowTitle: lesson.flowTitle
+45:  }, [lesson.id, normalizedSteps.length, activeStepId]);
+52:      ...lesson,
+66:      ...lesson,
+75:      onUpdateLesson({ ...lesson, steps: newSteps.length ? newSteps : [{
+82:    if (activeTab === 'slides' && lesson.slides) {
+83:      const categories = Array.from(new Set(lesson.slides.map(s => s.category).filter(Boolean))) as string[];
+90:  }, [lesson.slides, activeTab, activeCategory]);
+93:    if (activeTab === 'prompts' && lesson.prompts) {
+94:      const categories = Array.from(new Set(lesson.prompts.map(p => p.category).filter(Boolean))) as string[];
+101:  }, [lesson.prompts, activeTab, activePromptCategory]);
+114:  const enabledTabs = lesson.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'];
+115:  const tabOrder = lesson.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'];
+132:    onUpdateLesson({ ...lesson, tabOrder: newTabOrder });
+145:    onUpdateLesson({ ...lesson, enabledTabs: newTabs });
+148:  // Reset tab when lesson changes
+150:    const tabs = lesson.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'];
+165:  }, [lesson?.id, enlargedImage]);
+190:  if (!lesson) return null;
+198:    const list = (lesson[modalConfig.listKey] || []) as any[];
+201:    onUpdateLesson({ ...lesson, [modalConfig.listKey]: newList });
+211:    const list = (lesson[listKey] || []) as any[];
+212:    onUpdateLesson({ ...lesson, [listKey]: list.filter((item: any) => item.id !== id) });
+225:            new TextRun({ text: lesson.title, bold: true, size: 36 }),
+231:      for (const slide of lesson.slides) {
+298:      if (lesson.urls?.length) {
+305:        for (const item of lesson.urls) {
+319:      if (lesson.commands?.length) {
+326:        for (const item of lesson.commands) {
+345:      if (lesson.prompts?.length) {
+352:        for (const item of lesson.prompts) {
+382:      a.download = `${lesson.title}_slides.docx`;
+396:      const rows = lesson.commands.map(cmd => [
+404:      const rows = lesson.prompts.map(prompt => [
+412:      const rows = lesson.slides.map(slide => [
+423:      const rows = (lesson.urls || []).map(urlItem => [
+444:    XLSX.writeFile(workbook, `${lesson.title}_${filename}.xlsx`);
+458:    link.setAttribute("download", `${lesson.title}_${filename}.csv`);
+549:      const currentList = (lesson[type] || []) as any[];
+550:      onUpdateLesson({ ...lesson, [type]: [...currentList, ...newItems] });
+575:    const list = (lesson[listKey] || []) as any[];
+577:    onUpdateLesson({ ...lesson, [listKey]: newList });
+580:  const visibleSlides = editMode ? lesson.slides : lesson.slides?.filter(s => s.isVisible !== false);
+581:  const visibleCommands = editMode ? lesson.commands : lesson.commands?.filter(c => c.isVisible !== false);
+582:  const visiblePrompts = editMode ? lesson.prompts : lesson.prompts?.filter(p => p.isVisible !== false);
+583:  const visibleUrls = editMode ? lesson.urls : lesson.urls?.filter(u => u.isVisible !== false);
+587:      key={lesson.id}
+595:        {lesson.id.replace('l', '0')}
+600:          {lesson.date && <span className="ml-2 pl-2 border-l-2 border-white/30">{lesson.date}</span>}
+602:        <h1 className="text-4xl md:text-5xl font-black tracking-tight text-[var(--c-text)] mb-2 mt-2">{lesson.title}</h1>
+603:        {lesson.description && (
+604:          <p className="text-base font-medium text-[var(--c-text-muted)] mt-2 max-w-2xl">{lesson.description}</p>
+609:      {(editMode || (enabledTabs.includes('flow') && (lesson.flowMarkdown || (lesson.flowNodes && lesson.flowNodes.length > 0)))) && (
+616:                       value={lesson.flowTitle ?? '單元內容 (Markdown)'}
+617:                       onChange={(e) => onUpdateLesson({...lesson, flowTitle: e.target.value})}
+622:                    <span className="text-[var(--c-text)] font-semibold">{lesson.flowTitle || '單元內容 (Markdown)'}</span>
+638:           <div className={`w-full ${lesson.flowMarkdown ? 'min-h-[100px]' : 'h-[240px]'} rounded-xl overflow-hidden shadow-sm border-2 ${enabledTabs.includes('flow') ? 'border-[var(--c-border)] bg-white' : 'border-dashed border-gray-300 bg-gray-100 opacity-60 grayscale'} relative group p-4`}>
+640:                 {lesson.flowMarkdown ? (
+641:                    <MarkdownFlow content={lesson.flowMarkdown} />
+731:                {lesson.slides?.length > 0 && (
+860:                    {lesson.urls?.length > 0 && (
+957:                    {lesson.commands?.length > 0 && (
+1051:                    {lesson.prompts?.length > 0 && (
+1139:                  value={lesson.flowMarkdown || ''}
+1140:                  onChange={(e) => onUpdateLesson({...lesson, flowMarkdown: e.target.value})}

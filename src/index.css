@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-accent: #FF9877;
+  --font-sans: "Nunito", "Noto Sans TC", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  /* Playful UI Tokens (White / Powder Orange) */
+  --c-bg: #F0F4F8;           /* Very soft blue-gray background */
+  --c-surface: #FFFFFF;      /* Pure White */
+  --c-border: #CBD5E1;       /* Slate 300 - clear, chunky borders */
+  --c-text: #334155;         /* Slate 700 - friendly dark gray */
+  --c-text-muted: #64748B;   /* Slate 500 */
+  --c-accent: #FF9877;       /* Playful Powder Orange / Peachy Pink */
+  --c-accent-hover: #E58364; 
+  --c-accent-light: #FFECE6; 
+}
+
+body {
+  background-color: var(--c-bg);
+  background-image: radial-gradient(#CBD5E1 1px, transparent 1px);
+  background-size: 24px 24px; /* Playful dot grid background */
+  color: var(--c-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.display-num {
+  display: none;
+}
+
+/* Playful Chunky Cards (Replaces standard glass-panel) */
+.glass-panel {
+  background: var(--c-surface);
+  border: 2px solid var(--c-border);
+  border-radius: 24px;
+  box-shadow: 0 6px 0 0 var(--c-border); /* Chunky solid shadow */
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel:hover {
+  transform: translateY(2px);
+  box-shadow: 0 4px 0 0 var(--c-border);
+}
+
+/* Presentation Frame */
+.ppt-frame {
+  aspect-ratio: 16/9;
+  background: #F8FAFC; 
+  border: 2px solid var(--c-border);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 0 0 var(--c-border);
+  transition: all 0.15s ease-out;
+}
+
+.ppt-frame:hover {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 0 var(--c-border);
+  border-color: var(--c-accent);
+}
+
+.ppt-frame img {
+  background: #ffffff;
+}
+
+/* Friendly UI Labels */
+.mono-label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 900; /* Black */
+  letter-spacing: 0.02em;
+  color: var(--c-text);
+}
+
+/* Playful Prompts */
+.prompt-box {
+  background: var(--c-surface);
+  border: 2px solid var(--c-accent);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 4px 4px 0 0 var(--c-accent-light);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--c-border);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+

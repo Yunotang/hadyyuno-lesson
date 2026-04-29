@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { allow read, write: if false; }
+
+    function isValidId(id) { 
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function isAdmin() { 
+      return request.auth != null && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.uid == "gMW0O9hTKAf0SBeW3ohFylT9LIo1" ||
+        ("email" in request.auth.token && request.auth.token.email == "hoyoboy0726@gmail.com")
+      ); 
+    }
+
+    // Validation for Course
+    function isValidCourse(data) {
+      return data.keys().hasAll(['title', 'isPublished', 'updatedAt']) 
+        && data.title is string && data.title.size() <= 200
+        && data.isPublished is bool
+        && (data.keys().hasAll(['createdAt']) ? data.createdAt is timestamp : true)
+        && data.updatedAt is timestamp
+        && (data.keys().hasAll(['description']) ? (data.description is string && data.description.size() <= 5000) : true)
+        && (data.keys().hasAll(['date']) ? (data.date is string && data.date.size() <= 50) : true)
+        && (data.keys().hasAll(['order']) ? data.order is number : true);
+    }
+
+    // Validation for Lesson arrays
+    function validateSlides(slides) {
+      return slides is list && slides.size() <= 100; 
+    }
+    function validateCommands(commands) {
+      return commands is list && commands.size() <= 100;
+    }
+    function validatePrompts(prompts) {
+      return prompts is list && prompts.size() <= 100;
+    }
+    function validateUrls(urls) {
+      return urls is list && urls.size() <= 100;
+    }
+    function validateEnabledTabs(tabs) {
+      return tabs is list && tabs.size() <= 10;
+    }
+    
+    function validateTabOrder(tabs) {
+      return tabs is list && tabs.size() <= 10;
+    }
+
+    // Validation for Lesson
+    function isValidLesson(data) {
+      return data.keys().hasAll(['courseId', 'title', 'isPublished', 'slides', 'commands', 'prompts', 'updatedAt'])
+        && data.courseId is string && isValidId(data.courseId)
+        && data.title is string && data.title.size() <= 200
+        && data.isPublished is bool
+        && validateSlides(data.slides)
+        && validateCommands(data.commands)
+        && validatePrompts(data.prompts)
+        && (data.keys().hasAll(['urls']) ? validateUrls(data.urls) : true)
+        && (data.keys().hasAll(['enabledTabs']) ? validateEnabledTabs(data.enabledTabs) : true)
+        && (data.keys().hasAll(['tabOrder']) ? validateTabOrder(data.tabOrder) : true)
+        && (data.keys().hasAll(['createdAt']) ? data.createdAt is timestamp : true)
+        && data.updatedAt is timestamp
+        && (data.keys().hasAll(['description']) ? (data.description is string && data.description.size() <= 5000) : true)
+        && (data.keys().hasAll(['date']) ? (data.date is string && data.date.size() <= 50) : true)
+        && (data.keys().hasAll(['isFeatured']) ? data.isFeatured is bool : true)
+        && (data.keys().hasAll(['order']) ? data.order is number : true);
+    }
+
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /lessons/{lessonId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /admins/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Do not allow creating admins from client SDK.
+    }
+  }
+}
