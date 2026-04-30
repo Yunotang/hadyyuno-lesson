@@ -1,0 +1,6 @@
+{
+  "name": "Hady(YuNo)教學工具箱",
+  "description": "An application to manage and display course lessons, including commands, LLM prompts, and PPT slides.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
