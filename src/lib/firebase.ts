@@ -1,8 +1,9 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer, collection, onSnapshot, setDoc, deleteDoc, serverTimestamp, getDocs, query, where, writeBatch } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer, collection, onSnapshot, setDoc, deleteDoc, serverTimestamp, getDocs, query, where, writeBatch, increment } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Course, Lesson } from '../types';
+import { useState, useEffect } from 'react';
 
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); // MUST USE firestoreDatabaseId
@@ -81,11 +82,14 @@ export interface FirestoreErrorInfo {
   }
 }
 
+export let isQuotaExhausted = false;
+
 export function handleFirestoreError(error: any, operationType: FirestoreErrorInfo['operationType'], path: string | null = null) {
   if (operationType !== 'get' && operationType !== 'list') {
     if (error?.message && error.message.includes('size')) {
       alert('儲存失敗！單個課程內容超出容量限制 (1MB)。請嘗試縮減圖片數量或解析度。');
     } else if (error?.code === 'resource-exhausted' || (error?.message && error.message.includes('Quota'))) {
+      isQuotaExhausted = true;
       console.error("Firestore quota exceeded:", error);
       // Let the application continue working offline/locally instead of spamming alerts.
       // We log it quietly since continuous editing shouldn't be blocked.
@@ -120,6 +124,7 @@ export function handleFirestoreError(error: any, operationType: FirestoreErrorIn
 }
 
 export const syncToCloud = async (courses: Course[]) => {
+  if (isQuotaExhausted) return;
   // Save every course and lesson to Firestore via batch to respect limits
   try {
     const batch = writeBatch(db);
@@ -319,6 +324,7 @@ export const fetchFromCloud = async (isAdmin: boolean = false): Promise<Course[]
 };
 
 export const saveCourseToCloud = async (course: Course) => {
+  if (isQuotaExhausted) return;
   try {
     const courseDoc = doc(db, 'courses', course.id);
     const savePayload: any = {
@@ -375,6 +381,7 @@ export const compressImage = async (base64Str: string): Promise<string> => {
 };
 
   export const saveLessonToCloud = async (lesson: Lesson, courseId: string) => {
+  if (isQuotaExhausted) return;
   try {
     const compressedSlides = await Promise.all((lesson.slides || []).map(async (slide) => {
       return {
@@ -425,6 +432,7 @@ export const compressImage = async (base64Str: string): Promise<string> => {
 };
 
 export const deleteCourseFromCloud = async (courseId: string) => {
+  if (isQuotaExhausted) return;
   try {
     const batch = writeBatch(db);
     batch.delete(doc(db, 'courses', courseId));
@@ -442,6 +450,7 @@ export const deleteCourseFromCloud = async (courseId: string) => {
 };
 
 export const deleteLessonFromCloud = async (lessonId: string) => {
+  if (isQuotaExhausted) return;
   try {
     await deleteDoc(doc(db, 'lessons', lessonId));
   } catch (error) {

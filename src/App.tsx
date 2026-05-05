@@ -9,7 +9,7 @@ import { LessonView } from './components/LessonView';
 import { EditorModal } from './components/EditorModal';
 import { PasswordModal } from './components/PasswordModal';
 import { mockCourses } from './data/mockData';
-import { Menu, X, Settings2, Loader2, Download } from 'lucide-react';
+import { Menu, X, Settings2, Loader2, Download, Users } from 'lucide-react';
 import { Course } from './types';
 import { getItem, setItem } from './lib/db';
 import { fetchFromCloud, syncToCloud, logout, saveLessonToCloud } from './lib/firebase';
@@ -83,10 +83,21 @@ export default function App() {
         lessons: [...course.lessons].sort((a, b) => {
           if (a.isFeatured && !b.isFeatured) return -1;
           if (!a.isFeatured && b.isFeatured) return 1;
+          
+          const aOrder = typeof a.order === 'number' ? a.order : 99999;
+          const bOrder = typeof b.order === 'number' ? b.order : 99999;
+          if (aOrder !== bOrder) return aOrder - bOrder;
+
           return new Date(b.date || '1970-01-01').getTime() - new Date(a.date || '1970-01-01').getTime();
         })
       }))
-      .sort((a, b) => new Date(b.date || '1970-01-01').getTime() - new Date(a.date || '1970-01-01').getTime());
+      .sort((a, b) => {
+          const aOrder = typeof a.order === 'number' ? a.order : 99999;
+          const bOrder = typeof b.order === 'number' ? b.order : 99999;
+          if (aOrder !== bOrder) return aOrder - bOrder;
+
+          return new Date(b.date || '1970-01-01').getTime() - new Date(a.date || '1970-01-01').getTime();
+      });
   }, [courses, editMode]);
 
   // Set default or saved active lesson once courses are loaded
@@ -254,14 +265,14 @@ export default function App() {
                  setShowPasswordModal(true);
                }
              }}
-             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold transition-all rounded-xl border-2 ${
+             title={editMode ? '退出管理模式' : '進入管理模式'}
+             className={`flex items-center justify-center w-10 h-10 transition-all rounded-xl border-2 ${
                editMode 
                  ? 'bg-slate-800 border-slate-900 text-white hover:bg-slate-700 hover:-translate-y-0.5 shadow-[0_4px_0_0_#0f172a]' 
-                 : 'bg-white border-[var(--c-border)] text-[var(--c-text)] hover:bg-slate-50 hover:-translate-y-0.5 shadow-[0_4px_0_0_var(--c-border)]'
+                 : 'bg-transparent border-transparent text-[var(--c-text-muted)] hover:bg-slate-100 hover:text-[var(--c-text)] opacity-50 hover:opacity-100'
              }`}
            >
-             <Settings2 size={16} />
-             {editMode ? '退出管理模式' : '進入管理模式'}
+             <Settings2 size={18} />
            </button>
         </div>
 

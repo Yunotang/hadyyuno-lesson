@@ -12,6 +12,7 @@ interface EditorModalProps {
   onClose: () => void;
   onSave: (data: any) => void;
   initialData?: any;
+  existingCourses?: import('../types').Course[];
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -30,7 +31,7 @@ const FieldWrapper = ({ label, children }: { label: string, children: React.Reac
   </div>
 );
 
-export function EditorModal({ type, isOpen, onClose, onSave, initialData }: EditorModalProps) {
+export function EditorModal({ type, isOpen, onClose, onSave, initialData, existingCourses }: EditorModalProps) {
   const [formData, setFormData] = useState<any>({});
   const [isUploading, setIsUploading] = useState(false);
 
@@ -298,6 +299,44 @@ export function EditorModal({ type, isOpen, onClose, onSave, initialData }: Edit
       case 'lesson':
         return (
           <>
+            {!initialData && existingCourses && existingCourses.length > 0 && (
+              <FieldWrapper label="從現有單元複製內容 (選填, 包含內部連結/步驟)">
+                <select 
+                  className={inputClass}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) return;
+                    
+                    let foundLesson = null;
+                    for (const c of existingCourses) {
+                      for (const l of c.lessons) {
+                         if (l.id === val) {
+                           foundLesson = l;
+                           break;
+                         }
+                      }
+                      if (foundLesson) break;
+                    }
+                    
+                    if (foundLesson) {
+                       const clonedLesson = JSON.parse(JSON.stringify(foundLesson)); // deep clone
+                       clonedLesson.id = formData.id; // preserve new id
+                       setFormData(clonedLesson);
+                    }
+                  }}
+                  defaultValue=""
+                >
+                  <option value="">選擇要複製的單元...</option>
+                  {existingCourses.map(c => (
+                    <optgroup key={c.id} label={c.title}>
+                       {c.lessons.map(l => (
+                          <option key={l.id} value={l.id}>{l.title}</option>
+                       ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </FieldWrapper>
+            )}
             <FieldWrapper label="單元名稱 (Title)"><input className={inputClass} value={formData.title || ''} onChange={(e) => handleChange('title', e.target.value)} placeholder="例如：第一單元：基礎概念" /></FieldWrapper>
             <FieldWrapper label="單元摘要 (Description)"><textarea className={inputClass} value={formData.description || ''} onChange={(e) => handleChange('description', e.target.value)} placeholder="單元簡介..." /></FieldWrapper>
             <FieldWrapper label="上課日期 (Date)"><input type="date" className={inputClass} value={formData.date || ''} onChange={(e) => handleChange('date', e.target.value)} /></FieldWrapper>

@@ -1,4 +1,4 @@
-import { Book, ChevronRight, GraduationCap, Plus, Trash2, Edit2, Eye, EyeOff, ArrowUp, ArrowDown, Download } from 'lucide-react';
+import { Book, ChevronRight, GraduationCap, Plus, Trash2, Edit2, Eye, EyeOff, ArrowUp, ArrowDown, Download, Users, UserCheck } from 'lucide-react';
 import { Course, Lesson } from '../types';
 import { useState } from 'react';
 import React from 'react';
@@ -172,9 +172,9 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
   return (
     <div className="w-80 border-r border-[var(--c-border)] bg-[var(--c-surface)] h-screen overflow-y-auto hidden md:flex flex-col sticky top-0 relative">
       <div className="p-6 border-b-2 border-b-[var(--c-border)] sticky top-0 z-10 bg-[var(--c-surface)]">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3 text-[var(--c-text)]">
-            <div className="w-10 h-10 rounded-xl bg-[var(--c-accent)] text-white flex items-center justify-center border-2 border-[var(--c-border)] shadow-[0_3px_0_0_var(--c-border)]">
+            <div className="w-10 h-10 rounded-xl bg-[var(--c-accent)] text-white flex items-center justify-center border-2 border-[var(--c-border)] shadow-[0_3px_0_0_var(--c-border)] shrink-0">
               <GraduationCap size={20} />
             </div>
             <h1 className="font-extrabold tracking-wide text-lg text-[var(--c-text)]">Hady(YuNo)教學工具箱</h1>
@@ -308,6 +308,7 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
       <EditorModal 
          type="lesson"
          initialData={editingData}
+         existingCourses={courses}
          isOpen={modalType === 'lesson'} 
          onClose={() => { setModalType(null); setEditingData(null); }} 
          onSave={handleSaveLesson} 
