@@ -12,9 +12,10 @@ interface SidebarProps {
   activeLessonId: string | null;
   onSelectLesson: (lessonId: string) => void;
   editMode: boolean;
+  totalVisits: number;
 }
 
-export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, editMode }: SidebarProps) {
+export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, editMode, totalVisits }: SidebarProps) {
   const [modalType, setModalType] = useState<'course' | 'lesson' | null>(null);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [editingData, setEditingData] = useState<any>(null);
@@ -177,7 +178,15 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
             <div className="w-10 h-10 rounded-xl bg-[var(--c-accent)] text-white flex items-center justify-center border-2 border-[var(--c-border)] shadow-[0_3px_0_0_var(--c-border)] shrink-0">
               <GraduationCap size={20} />
             </div>
-            <h1 className="font-extrabold tracking-wide text-lg text-[var(--c-text)]">Hady(YuNo)教學工具箱</h1>
+            <div className="flex flex-col flex-1 min-w-0">
+              <h1 className="font-extrabold tracking-wide text-lg text-[var(--c-text)] truncate">Hady(YuNo)教學工具箱</h1>
+              {totalVisits > 0 && (
+                <div className="flex items-center gap-1.5 mt-0.5 text-xs font-semibold text-[var(--c-text-muted)] bg-slate-50 border border-[var(--c-border)] rounded-md px-1.5 py-0.5 w-max">
+                  <Users size={10} className="text-[var(--c-accent)]" />
+                  <span>總造訪人數: {totalVisits}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

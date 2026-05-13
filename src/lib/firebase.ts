@@ -84,7 +84,7 @@ export interface FirestoreErrorInfo {
 
 export let isQuotaExhausted = false;
 
-export function handleFirestoreError(error: any, operationType: FirestoreErrorInfo['operationType'], path: string | null = null) {
+function handleFirestoreError(error: any, operationType: FirestoreErrorInfo['operationType'], path: string | null = null) {
   if (operationType !== 'get' && operationType !== 'list') {
     if (error?.message && error.message.includes('size')) {
       alert('儲存失敗！單個課程內容超出容量限制 (1MB)。請嘗試縮減圖片數量或解析度。');
@@ -123,6 +123,21 @@ export function handleFirestoreError(error: any, operationType: FirestoreErrorIn
   throw error;
 }
 
+const removeUndefined = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefined);
+  } else if (obj !== null && typeof obj === 'object' && !(obj instanceof Date) && obj.constructor.name === 'Object') {
+    const result: any = {};
+    for (const key in obj) {
+      if (obj[key] !== undefined) {
+        result[key] = removeUndefined(obj[key]);
+      }
+    }
+    return result;
+  }
+  return obj;
+};
+
 export const syncToCloud = async (courses: Course[]) => {
   if (isQuotaExhausted) return;
   // Save every course and lesson to Firestore via batch to respect limits
@@ -131,14 +146,20 @@ export const syncToCloud = async (courses: Course[]) => {
     
     for (const c of courses) {
       const courseDoc = doc(db, 'courses', c.id);
-      batch.set(courseDoc, {
+      const coursePayload: any = {
         title: c.title,
         description: c.description || '',
         date: c.date || '',
         order: c.order ?? 0,
         isPublished: c.isVisible !== false,
         updatedAt: serverTimestamp()
-      }, { merge: true });
+      };
+      if (c.practiceMaterialUrl !== undefined) {
+        coursePayload.practiceMaterialUrl = c.practiceMaterialUrl;
+      }
+      const cleanedCourse = removeUndefined(coursePayload);
+      cleanedCourse.updatedAt = serverTimestamp();
+      batch.set(courseDoc, cleanedCourse, { merge: true });
 
       for (const l of c.lessons) {
         const compressedSlides = await Promise.all((l.slides || []).map(async (slide) => {
@@ -159,7 +180,7 @@ export const syncToCloud = async (courses: Course[]) => {
         }));
 
         const lessonDoc = doc(db, 'lessons', l.id);
-        batch.set(lessonDoc, {
+        const lessonPayload: any = {
           courseId: c.id,
           title: l.title,
           description: l.description || '',
@@ -179,7 +200,14 @@ export const syncToCloud = async (courses: Course[]) => {
           tabOrder: l.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'],
           steps: compressedSteps,
           updatedAt: serverTimestamp()
-        }, { merge: true });
+        };
+        if (l.practiceMaterialUrl !== undefined) {
+          lessonPayload.practiceMaterialUrl = l.practiceMaterialUrl;
+        }
+        
+        const cleanedLesson = removeUndefined(lessonPayload);
+        cleanedLesson.updatedAt = serverTimestamp();
+        batch.set(lessonDoc, cleanedLesson, { merge: true });
       }
     }
 
@@ -338,7 +366,9 @@ export const saveCourseToCloud = async (course: Course) => {
     if (course.practiceMaterialUrl !== undefined) {
       savePayload.practiceMaterialUrl = course.practiceMaterialUrl;
     }
-    await setDoc(courseDoc, savePayload, { merge: true });
+    const cleanedPayload = removeUndefined(savePayload);
+    cleanedPayload.updatedAt = serverTimestamp();
+    await setDoc(courseDoc, cleanedPayload, { merge: true });
   } catch (error) {
     handleFirestoreError(error, 'update', `courses/${course.id}`);
   }
@@ -425,7 +455,13 @@ export const compressImage = async (base64Str: string): Promise<string> => {
     if (lesson.practiceMaterialUrl !== undefined) {
       savePayload.practiceMaterialUrl = lesson.practiceMaterialUrl;
     }
-    await setDoc(lessonDoc, savePayload, { merge: true });
+    
+    // Firestore does not like `undefined`
+    const cleanedPayload = removeUndefined(savePayload);
+    cleanedPayload.updatedAt = serverTimestamp(); // Restore timestamp because removeUndefined might mangle or flatten custom objects if not careful, though it handles objects fine, it's safer. Wait, Firebase FieldValue isn't a plain Object.
+    // wait, our removeUndefined ignores non-plain objects `obj.constructor.name === 'Object'`, but FieldValue constructor name is `FieldValue`. Yes, it should be safe.
+    
+    await setDoc(lessonDoc, cleanedPayload, { merge: true });
   } catch (error) {
     handleFirestoreError(error, 'update', `lessons/${lesson.id}`);
   }
@@ -456,4 +492,35 @@ export const deleteLessonFromCloud = async (lessonId: string) => {
   } catch (error) {
     handleFirestoreError(error, 'delete', `lessons/${lessonId}`);
   }
+};
+
+export const recordVisit = async () => {
+  if (!sessionStorage.getItem('visited')) {
+    sessionStorage.setItem('visited', '1');
+    try {
+      await setDoc(doc(db, 'system', 'stats'), { totalVisits: increment(1) }, { merge: true });
+    } catch (e) {
+      // silently fail if permission denied or offline
+    }
+  }
+};
+
+export const useVisitorStats = () => {
+  const [totalVisits, setTotalVisits] = useState(0);
+
+  useEffect(() => {
+    recordVisit();
+
+    const unsubStats = onSnapshot(doc(db, 'system', 'stats'), (doc) => {
+      if (doc.exists()) {
+        setTotalVisits(doc.data().totalVisits || 0);
+      }
+    });
+
+    return () => {
+      unsubStats();
+    }
+  }, []);
+
+  return { totalVisits };
 };

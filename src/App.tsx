@@ -8,11 +8,12 @@ import { Sidebar } from './components/Sidebar';
 import { LessonView } from './components/LessonView';
 import { EditorModal } from './components/EditorModal';
 import { PasswordModal } from './components/PasswordModal';
+import { ExportModal } from './components/ExportModal';
 import { mockCourses } from './data/mockData';
 import { Menu, X, Settings2, Loader2, Download, Users } from 'lucide-react';
 import { Course } from './types';
 import { getItem, setItem } from './lib/db';
-import { fetchFromCloud, syncToCloud, logout, saveLessonToCloud } from './lib/firebase';
+import { fetchFromCloud, syncToCloud, logout, saveLessonToCloud, useVisitorStats } from './lib/firebase';
 
 export default function App() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -22,7 +23,11 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  
+  const { totalVisits } = useVisitorStats();
 
 // Load data asynchronously on mount
   useEffect(() => {
@@ -130,20 +135,21 @@ export default function App() {
 
   const [isExporting, setIsExporting] = useState(false);
 
-  const handleExportAllWord = async () => {
+  const handleExportWord = async (coursesToExport: Course[]) => {
     setIsExporting(true);
     try {
       const { exportAllToWord } = await import('./lib/exportWord');
       let fileName = 'Hady(YuNo)教學工具箱';
-      if (activeCourse && activeCourse.title) {
-        fileName = activeCourse.title;
-      } else if (sortedCourses.length > 0 && sortedCourses[0].title) {
-        fileName = sortedCourses[0].title;
+      if (coursesToExport.length === 1 && coursesToExport[0].title) {
+        fileName = coursesToExport[0].title;
       }
-      await exportAllToWord(sortedCourses, editMode, `${fileName}_所有單元.docx`);
+
+      const suffix = coursesToExport.length > 1 ? '_所有單元' : '';
+      await exportAllToWord(coursesToExport, editMode, `${fileName}${suffix}.docx`);
+      setShowExportModal(false);
     } catch (err) {
       console.error("Export to Word failed", err);
-      alert("匯出所有單元失敗，請重試！");
+      alert("匯出匯出失敗，請重試！");
     } finally {
       setIsExporting(false);
     }
@@ -155,12 +161,21 @@ export default function App() {
       lessons: c.lessons.map(l => l.id === updatedLesson.id ? updatedLesson : l)
     })));
     if (activeCourse && editMode) {
+      setSaveStatus('saving');
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
       saveTimeoutRef.current = setTimeout(() => {
-        saveLessonToCloud(updatedLesson, activeCourse.id).catch(console.error);
-      }, 3000); // 3 seconds debounce to prevent Quota Exhaustion
+        saveLessonToCloud(updatedLesson, activeCourse.id)
+          .then(() => {
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus('idle'), 2000);
+          })
+          .catch((err) => {
+            console.error(err);
+            setSaveStatus('idle');
+          });
+      }, 2000); // reduced slightly to feel responsive but prevent exhaustion
     }
   };
 
@@ -179,13 +194,27 @@ export default function App() {
     <div className="flex min-h-screen bg-[var(--c-bg)] text-[var(--c-text)] font-sans relative overflow-hidden">
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[var(--c-surface)] border-b border-[var(--c-border)] flex items-center justify-between px-4 z-50">
-        <h1 className="font-extrabold tracking-wide text-[var(--c-text)]">Hady(YuNo)教學工具箱</h1>
-        <button 
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 text-[var(--c-text-muted)] hover:bg-slate-50 rounded-md transition-colors"
-        >
-          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
+        <div className="flex flex-col">
+           <h1 className="font-extrabold tracking-wide text-[var(--c-text)]">Hady(YuNo)教學工具箱</h1>
+           {totalVisits > 0 && <span className="text-[10px] text-[var(--c-text-muted)] font-medium">總造訪人數: {totalVisits}</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          {editMode && (
+            <span className={`text-[10px] font-bold px-2 py-1 rounded-full transition-all duration-300 ${
+              saveStatus === 'saving' ? 'bg-amber-100 text-amber-700' :
+              saveStatus === 'saved' ? 'bg-emerald-100 text-emerald-700' :
+              'opacity-0'
+            }`}>
+              {saveStatus === 'saving' ? '儲存中...' : '已儲存'}
+            </span>
+          )}
+          <button 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 text-[var(--c-text-muted)] hover:bg-slate-50 rounded-md transition-colors"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Dropdown Menu */}
@@ -228,18 +257,30 @@ export default function App() {
         activeLessonId={activeLessonId} 
         onSelectLesson={setActiveLessonId} 
         editMode={editMode}
+        totalVisits={totalVisits}
       />
 
       {/* Main Content */}
       <main className="flex-1 w-full flex justify-center p-6 pt-24 md:p-10 relative z-10 min-w-0 overflow-y-auto h-screen">
         <div className="absolute top-6 right-6 z-50 hidden md:flex items-center gap-3">
+          {editMode && (
+            <div className="flex items-center">
+              <span className={`text-xs font-bold px-3 py-1.5 rounded-full transition-all duration-300 ${
+                saveStatus === 'saving' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                saveStatus === 'saved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                'opacity-0 scale-95'
+              }`}>
+                {saveStatus === 'saving' ? '儲存中...' : '已自動儲存'}
+              </span>
+            </div>
+          )}
           <button
-            onClick={handleExportAllWord}
+            onClick={() => setShowExportModal(true)}
             disabled={isExporting}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold transition-all rounded-xl border-2 bg-green-600 border-green-700 text-white hover:bg-green-500 hover:-translate-y-0.5 shadow-[0_4px_0_0_#15803d] ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-            {isExporting ? '匯出中...' : '匯出所有單元(Word)'}
+            {isExporting ? '匯出中...' : '匯出課程(Word)'}
           </button>
           {editMode && (
             <button
@@ -297,6 +338,15 @@ export default function App() {
         isOpen={showPasswordModal}
         onClose={() => setShowPasswordModal(false)}
         onSuccess={() => setEditMode(true)}
+      />
+
+      <ExportModal 
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        courses={sortedCourses}
+        onExport={handleExportWord}
+        isExporting={isExporting}
+        activeCourseId={activeCourse?.id}
       />
     </div>
   );
