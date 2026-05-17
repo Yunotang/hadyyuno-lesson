@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Terminal, Lightbulb, Presentation, Edit2, Trash2, Plus, LayoutList, Upload, Eye, EyeOff, Link, ArrowLeft, ArrowRight, Waypoints, FileText } from 'lucide-react';
+import { Terminal, Lightbulb, Presentation, Edit2, Trash2, Plus, LayoutList, Upload, Eye, EyeOff, Link, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Waypoints, FileText } from 'lucide-react';
 import { Lesson } from '../types';
 import { CopyButton } from './CopyButton';
 import React, { useState, useEffect } from 'react';
@@ -96,7 +96,7 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
       id: "step-" + Date.now().toString(),
       title: '新教學步驟',
       slides: [], urls: [], commands: [], prompts: [], flowMarkdown: '',
-      enabledTabs: ['slides', 'urls', 'commands', 'prompts', 'flow'] as any,
+      enabledTabs: [] as any,
       tabOrder: ['slides', 'urls', 'commands', 'prompts', 'flow'] as any
     };
     onUpdateLesson({
@@ -286,6 +286,22 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
     setDeleteConfirm({ listKey, id });
   };
 
+  const handleMove = (listKey: keyof Lesson, id: string, direction: 'up' | 'down') => {
+    const list = [...(activeData[listKey as keyof typeof activeData] || [])] as any[];
+    const index = list.findIndex(item => item.id === id);
+    if (index === -1) return;
+    
+    if (direction === 'up' && index > 0) {
+      [list[index - 1], list[index]] = [list[index], list[index - 1]];
+    } else if (direction === 'down' && index < list.length - 1) {
+      [list[index], list[index + 1]] = [list[index + 1], list[index]];
+    } else {
+      return;
+    }
+    
+    updateActiveStep({ [listKey]: list });
+  };
+
   const executeDelete = () => {
     if (!deleteConfirm) return;
     const { listKey, id } = deleteConfirm;
@@ -350,7 +366,7 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                 let imgType: 'png' | 'jpg' | 'gif' | 'bmp' | 'svg' = 'png';
                 
                 const lowerUrl = slide.imageUrl.toLowerCase();
-                if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || slide.imageUrl.startsWith('data:image/jpeg') || slide.imageUrl.includes('drive.google.com/thumbnail')) {
+                if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || slide.imageUrl.startsWith('data:image/jpeg') || slide.imageUrl.includes('drive.google.com/thumbnail') || slide.imageUrl.includes('drive.google.com/uc')) {
                   imgType = 'jpg';
                 } else if (lowerUrl.includes('.gif') || slide.imageUrl.startsWith('data:image/gif')) {
                   imgType = 'gif';
@@ -881,10 +897,11 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
         {lesson.id.replace('l', '0')}
       </div>
       <header className="relative z-10 mb-8 flex flex-col items-start group">
-        <span className="mono-label mb-2 inline-block bg-[var(--c-accent)] text-white px-3 py-1 rounded-full text-[11px] uppercase border-2 border-[var(--c-accent-hover)] shadow-[0_2px_0_0_var(--c-accent-hover)]">
-          教學單元內容
-          {lesson.date && <span className="ml-2 pl-2 border-l-2 border-white/30">{lesson.date}</span>}
-        </span>
+        {lesson.date && (
+          <span className="mono-label mb-2 inline-block bg-[var(--c-accent)] text-white px-3 py-1 rounded-full text-[11px] uppercase border-2 border-[var(--c-accent-hover)] shadow-[0_2px_0_0_var(--c-accent-hover)]">
+            {lesson.date}
+          </span>
+        )}
         <div className="flex flex-wrap items-center gap-4 mb-2 mt-2">
           <h1 className="text-4xl md:text-5xl font-black tracking-tight text-[var(--c-text)]">{lesson.title}</h1>
           <button 
@@ -1072,6 +1089,8 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                     </div>
                     {editMode && (
                       <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                        <button disabled={(activeData.slides?.findIndex(s => s.id === slide.id) ?? -1) <= 0} onClick={() => handleMove('slides', slide.id, 'up')} className="p-2 bg-white text-[var(--c-text)] hover:text-[var(--c-accent)] shadow-sm border border-[var(--c-border)] rounded-md disabled:opacity-30 disabled:cursor-not-allowed"><ArrowLeft size={14} /></button>
+                        <button disabled={(activeData.slides?.findIndex(s => s.id === slide.id) ?? -1) >= (activeData.slides?.length ?? 0) - 1} onClick={() => handleMove('slides', slide.id, 'down')} className="p-2 bg-white text-[var(--c-text)] hover:text-[var(--c-accent)] shadow-sm border border-[var(--c-border)] rounded-md disabled:opacity-30 disabled:cursor-not-allowed"><ArrowRight size={14} /></button>
                         <button onClick={() => toggleVisibility('slides', slide)} className="p-2 bg-white text-[var(--c-text)] hover:text-[var(--c-accent)] shadow-sm border border-[var(--c-border)] rounded-md" title={slide.isVisible === false ? '目前隱藏 (點擊發布)' : '目前發布 (點擊隱藏)'}>
                           {slide.isVisible === false ? <EyeOff size={14} className="text-amber-500" /> : <Eye size={14} className="text-emerald-500" />}
                         </button>
@@ -1167,6 +1186,8 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                             </div>
                             {editMode && (
                               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
+                                <button disabled={(activeData.urls?.findIndex(u => u.id === urlItem.id) ?? -1) <= 0} onClick={() => handleMove('urls', urlItem.id, 'up')} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"><ArrowUp size={16} /></button>
+                                <button disabled={(activeData.urls?.findIndex(u => u.id === urlItem.id) ?? -1) >= (activeData.urls?.length ?? 0) - 1} onClick={() => handleMove('urls', urlItem.id, 'down')} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"><ArrowDown size={16} /></button>
                                 <button onClick={() => toggleVisibility('urls', urlItem)} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-200 rounded-lg" title={urlItem.isVisible === false ? '目前隱藏 (點擊發布)' : '目前發布 (點擊隱藏)'}>
                                   {urlItem.isVisible === false ? <EyeOff size={16} className="text-amber-500" /> : <Eye size={16} className="text-emerald-500" />}
                                 </button>
@@ -1245,6 +1266,8 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                           <div className="flex items-center gap-3">
                             {editMode && (
                               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity mr-4">
+                                <button disabled={(activeData.commands?.findIndex(c => c.id === cmd.id) ?? -1) <= 0} onClick={() => handleMove('commands', cmd.id, 'up')} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"><ArrowUp size={16} /></button>
+                                <button disabled={(activeData.commands?.findIndex(c => c.id === cmd.id) ?? -1) >= (activeData.commands?.length ?? 0) - 1} onClick={() => handleMove('commands', cmd.id, 'down')} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"><ArrowDown size={16} /></button>
                                 <button onClick={() => toggleVisibility('commands', cmd)} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-200 rounded-lg" title={cmd.isVisible === false ? '目前隱藏 (點擊發布)' : '目前發布 (點擊隱藏)'}>
                                   {cmd.isVisible === false ? <EyeOff size={16} className="text-amber-500" /> : <Eye size={16} className="text-emerald-500" />}
                                 </button>
@@ -1348,6 +1371,8 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                           <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-4">
                             {editMode && (
                               <div className="flex gap-2">
+                                <button disabled={(activeData.prompts?.findIndex(p => p.id === prompt.id) ?? -1) <= 0} onClick={() => handleMove('prompts', prompt.id, 'up')} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"><ArrowUp size={16} /></button>
+                                <button disabled={(activeData.prompts?.findIndex(p => p.id === prompt.id) ?? -1) >= (activeData.prompts?.length ?? 0) - 1} onClick={() => handleMove('prompts', prompt.id, 'down')} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"><ArrowDown size={16} /></button>
                                 <button onClick={() => toggleVisibility('prompts', prompt)} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-50 rounded" title={prompt.isVisible === false ? '目前隱藏 (點擊發布)' : '目前發布 (點擊隱藏)'}>
                                   {prompt.isVisible === false ? <EyeOff size={16} className="text-amber-500" /> : <Eye size={16} className="text-emerald-500" />}
                                 </button>

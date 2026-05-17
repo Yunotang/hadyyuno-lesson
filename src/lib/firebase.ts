@@ -218,6 +218,17 @@ export const syncToCloud = async (courses: Course[]) => {
   }
 };
 
+export const fixDriveThumbnailUrl = (url?: string) => {
+  if (!url) return url;
+  if (url.includes('drive.google.com/uc') && url.includes('id=')) {
+    const match = url.match(/id=([^&]+)/);
+    if (match && match[1]) {
+      return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w2560`;
+    }
+  }
+  return url;
+};
+
 export const fetchFromCloud = async (isAdmin: boolean = false): Promise<Course[]> => {
   try {
     let coursesSnap, lessonsSnap;
@@ -289,7 +300,21 @@ export const fetchFromCloud = async (isAdmin: boolean = false): Promise<Course[]
       };
     });
 
-    const fetchedLessons = lessonsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const fetchedLessons = lessonsSnap.docs.map(doc => {
+      const data = doc.data();
+      if (data.slides) {
+        data.slides = data.slides.map((s: any) => ({ ...s, imageUrl: fixDriveThumbnailUrl(s.imageUrl) }));
+      }
+      if (data.steps) {
+        data.steps = data.steps.map((step: any) => {
+          if (step.slides) {
+            step.slides = step.slides.map((s: any) => ({ ...s, imageUrl: fixDriveThumbnailUrl(s.imageUrl) }));
+          }
+          return step;
+        });
+      }
+      return { id: doc.id, ...data };
+    });
 
     fetchedCourses.forEach(course => {
       course.lessons = fetchedLessons.filter((l: any) => l.courseId === course.id).map((l: any) => {

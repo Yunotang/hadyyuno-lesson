@@ -75,7 +75,7 @@ export const exportAllToWord = async (courses: Course[], editMode: boolean, file
                 let bufferData: ArrayBuffer;
                 let imgType: 'png' | 'jpg' | 'gif' | 'bmp' | 'svg' = 'png';
                 const lowerUrl = slide.imageUrl.toLowerCase();
-                if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || slide.imageUrl.startsWith('data:image/jpeg') || slide.imageUrl.includes('drive.google.com/thumbnail')) {
+                if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || slide.imageUrl.startsWith('data:image/jpeg') || slide.imageUrl.includes('drive.google.com/thumbnail') || slide.imageUrl.includes('drive.google.com/uc')) {
                   imgType = 'jpg';
                 } else if (lowerUrl.includes('.gif') || slide.imageUrl.startsWith('data:image/gif')) {
                   imgType = 'gif';

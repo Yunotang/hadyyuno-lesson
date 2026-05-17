@@ -166,7 +166,10 @@ export default function App() {
         clearTimeout(saveTimeoutRef.current);
       }
       saveTimeoutRef.current = setTimeout(() => {
-        saveLessonToCloud(updatedLesson, activeCourse.id)
+        Promise.race([
+          saveLessonToCloud(updatedLesson, activeCourse.id),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
+        ])
           .then(() => {
             setSaveStatus('saved');
             setTimeout(() => setSaveStatus('idle'), 2000);
@@ -174,6 +177,9 @@ export default function App() {
           .catch((err) => {
             console.error(err);
             setSaveStatus('idle');
+            if (err.message === 'timeout') {
+              console.warn('儲存時間過長，部分內容可能尚未同步完成，建議稍後再試。');
+            }
           });
       }, 2000); // reduced slightly to feel responsive but prevent exhaustion
     }

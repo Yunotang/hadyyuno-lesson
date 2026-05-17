@@ -185,7 +185,7 @@ export function EditorModal({ type, isOpen, onClose, onSave, initialData, existi
                   onChange={(e) => {
                     let val = e.target.value;
                     const driveMatch = val.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
-                    const driveUcMatch = val.match(/drive\.google\.com\/uc\?export=view&id=([^&]+)/);
+                    const driveUcMatch = val.match(/drive\.google\.com\/uc.*id=([^&]+)/);
                     if (driveMatch && driveMatch[1]) {
                       val = `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w2560`;
                     } else if (driveUcMatch && driveUcMatch[1]) {
@@ -197,7 +197,24 @@ export function EditorModal({ type, isOpen, onClose, onSave, initialData, existi
                 />
               </div>
             </FieldWrapper>
-            <FieldWrapper label="附屬代碼抬頭 - 可選 (Code Title)"><input className={inputClass} value={formData.codeTitle || ''} onChange={(e) => handleChange('codeTitle', e.target.value)} placeholder="例如：指令、網址或相關代碼" /></FieldWrapper>
+            <FieldWrapper label="附屬代碼抬頭 - 可選 (Code Title)">
+              <div className="relative">
+                <select 
+                  className={`${inputClass} appearance-none`} 
+                  value={formData.codeTitle || ''} 
+                  onChange={(e) => handleChange('codeTitle', e.target.value)}
+                >
+                  <option value="">請選擇</option>
+                  <option value="提示詞">提示詞</option>
+                  <option value="指令">指令</option>
+                  <option value="網址">網址</option>
+                  <option value="其它">其它</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                </div>
+              </div>
+            </FieldWrapper>
             <FieldWrapper label="附贈指令代碼 - 可選 (Code)"><textarea className={`${inputClass} min-h-[120px] font-mono whitespace-pre`} value={formData.code || ''} onChange={(e) => handleChange('code', e.target.value)} placeholder="npm install..." /></FieldWrapper>
             <FieldWrapper label="代碼語言 - 可選 (Language)"><input className={inputClass} value={formData.language || ''} onChange={(e) => handleChange('language', e.target.value)} placeholder="例如：bash, python, json" /></FieldWrapper>
             
@@ -230,16 +247,26 @@ export function EditorModal({ type, isOpen, onClose, onSave, initialData, existi
                   <div className="space-y-3 mt-2">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">標題</label>
-                      <input 
-                        className={inputClass} 
-                        value={extra.title} 
-                        onChange={(e) => {
-                          const newExtras = [...formData.extraCodes];
-                          newExtras[index].title = e.target.value;
-                          handleChange('extraCodes', newExtras);
-                        }} 
-                        placeholder="例如：第二步指令" 
-                      />
+                      <div className="relative">
+                        <select 
+                          className={`${inputClass} appearance-none`} 
+                          value={extra.title} 
+                          onChange={(e) => {
+                            const newExtras = [...formData.extraCodes];
+                            newExtras[index].title = e.target.value;
+                            handleChange('extraCodes', newExtras);
+                          }}
+                        >
+                          <option value="">請選擇</option>
+                          <option value="提示詞">提示詞</option>
+                          <option value="指令">指令</option>
+                          <option value="網址">網址</option>
+                          <option value="其它">其它</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                          <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">代碼</label>

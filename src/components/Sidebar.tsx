@@ -1,4 +1,4 @@
-import { Book, ChevronRight, GraduationCap, Plus, Trash2, Edit2, Eye, EyeOff, ArrowUp, ArrowDown, Download, Users, UserCheck } from 'lucide-react';
+import { Book, ChevronRight, ChevronDown, GraduationCap, Plus, Trash2, Edit2, Eye, EyeOff, ArrowUp, ArrowDown, Download, Users, UserCheck, PlusSquare, MinusSquare } from 'lucide-react';
 import { Course, Lesson } from '../types';
 import { useState } from 'react';
 import React from 'react';
@@ -20,6 +20,26 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [editingData, setEditingData] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{type: 'course' | 'lesson', courseId: string, lessonId?: string} | null>(null);
+  const [expandedCourses, setExpandedCourses] = useState<Record<string, boolean>>({});
+
+  React.useEffect(() => {
+    if (activeLessonId) {
+      const course = courses.find(c => c.lessons.some(l => l.id === activeLessonId));
+      if (course) {
+        setExpandedCourses(prev => {
+          if (!prev[course.id]) {
+            return { ...prev, [course.id]: true };
+          }
+          return prev;
+        });
+      }
+    }
+  }, [activeLessonId, courses]);
+
+  const toggleCourse = (courseId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedCourses(prev => ({ ...prev, [courseId]: !prev[courseId] }));
+  };
 
   const handleSaveCourse = async (data: any) => {
     let updatedCourses = courses;
@@ -44,7 +64,7 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
     if (editingData) {
       updatedCourses = courses.map(c => c.id === activeCourseId ? { ...c, lessons: c.lessons.map(l => l.id === data.id ? { ...l, title: data.title, description: data.description, date: data.date, isFeatured: data.isFeatured, practiceMaterialUrl: data.practiceMaterialUrl } : l) } : c);
     } else {
-      updatedCourses = courses.map(c => c.id === activeCourseId ? { ...c, lessons: [...c.lessons, { ...data, slides: [], commands: [], prompts: [], urls: [] }] } : c);
+      updatedCourses = courses.map(c => c.id === activeCourseId ? { ...c, lessons: [...c.lessons, { ...data, slides: [], commands: [], prompts: [], urls: [], enabledTabs: [], tabOrder: ['slides', 'urls', 'commands', 'prompts', 'flow'] }] } : c);
     }
     setCourses(updatedCourses);
 
@@ -195,8 +215,14 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
         {courses.filter(c => editMode || c.isVisible !== false).map((course) => (
           <div key={course.id} className={`space-y-2 ${course.isVisible === false && editMode ? 'opacity-60' : ''}`}>
             <div className="px-2 mb-3 mt-4 flex items-start gap-2 group relative">
-              <Book size={16} className="text-[var(--c-text-muted)] relative top-[1px]" />
-              <div className="flex flex-col flex-1">
+              <button 
+                className="mt-0.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] transition-colors shrink-0 outline-none"
+                onClick={(e) => toggleCourse(course.id, e)}
+                title={expandedCourses[course.id] ? "隱藏單元" : "展開單元"}
+              >
+                {expandedCourses[course.id] ? <MinusSquare size={16} className="text-red-600" /> : <PlusSquare size={16} />}
+              </button>
+              <div className="flex flex-col flex-1 cursor-pointer" onClick={(e) => toggleCourse(course.id, e)}>
                 <h2 className="mono-label !mb-0 text-[var(--c-text)]">
                   {course.title} {course.isVisible === false && <span className="text-amber-500 ml-1">(已隱藏)</span>}
                 </h2>
@@ -231,6 +257,7 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
                 </div>
               )}
             </div>
+            {expandedCourses[course.id] && (
             <ul className="space-y-1">
               {course.lessons.filter(l => editMode || l.isVisible !== false).map((lesson) => {
                 const isActive = lesson.id === activeLessonId;
@@ -248,9 +275,9 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
                       }`}
                     >
                       <div className="flex items-center justify-between px-4 py-2.5">
-                        <span className="truncate flex items-center gap-2 text-sm min-w-0">
-                          {isFeatured && <span className="flex w-2.5 h-2.5 bg-amber-400 rounded-full animate-pulse shadow-[0_0_0_3px_rgba(251,191,36,0.3)] shrink-0" />}
-                          <span className="truncate">{lesson.title} {lesson.isVisible === false && <span className="text-amber-500 ml-1 shrink-0">(已隱藏)</span>}</span>
+                        <span className="flex items-start gap-2 text-sm break-words whitespace-normal py-0.5 flex-1 min-w-0">
+                          {isFeatured && <span className="flex w-2.5 h-2.5 bg-amber-400 rounded-full animate-pulse shadow-[0_0_0_3px_rgba(251,191,36,0.3)] shrink-0 mt-[6px]" />}
+                          <span className="break-all leading-snug">{lesson.title} {lesson.isVisible === false && <span className="text-amber-500 ml-1 shrink-0 whitespace-nowrap">(已隱藏)</span>}</span>
                         </span>
                         {isActive && !editMode && <ChevronRight size={14} className="text-[var(--c-accent)] shrink-0" />}
                       </div>
@@ -284,6 +311,7 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
                 );
               })}
             </ul>
+            )}
             {editMode && (
               <button 
                 onClick={() => { setActiveCourseId(course.id); setEditingData(null); setModalType('lesson'); }} 
