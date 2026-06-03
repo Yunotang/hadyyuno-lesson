@@ -331,16 +331,56 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
 
   const generateWordBlob = async () => {
     const docx = await import('docx');
-    const { Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell, BorderStyle, WidthType, AlignmentType, ShadingType } = docx;
+    const { Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell, BorderStyle, WidthType, AlignmentType, ShadingType, ExternalHyperlink } = docx;
       
       const children: any[] = [
         new Paragraph({
           children: [
             new TextRun({ text: lesson.title, bold: true, size: 36 }),
           ],
-          spacing: { after: 200 },
+          spacing: { after: 100 },
         })
       ];
+
+      if (lesson.description) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: lesson.description, size: 24, color: "374151" })
+            ],
+            spacing: { after: 200 },
+          })
+        );
+      }
+
+      if (lesson.links && lesson.links.length > 0) {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: "相關影片/連結", bold: true, size: 28, color: "4F46E5" })],
+            spacing: { before: 100, after: 100 }
+          })
+        );
+        
+        lesson.links.forEach(link => {
+          if (link.url && link.title) {
+            children.push(
+              new Paragraph({
+                children: [
+                  new ExternalHyperlink({
+                    children: [
+                      new TextRun({ text: "▶ " + link.title, color: "2563EB", underline: {}, size: 24 })
+                    ],
+                    link: link.url
+                  })
+                ],
+                spacing: { before: 50, after: 100 },
+                indent: { left: 360 }
+              })
+            );
+          }
+        });
+        children.push(new Paragraph({ text: "", spacing: { after: 200 } }));
+      }
 
       for (const stepData of normalizedSteps) {
         if (normalizedSteps.length > 1) {
@@ -534,7 +574,18 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                   new TableCell({
                     width: { size: 70, type: WidthType.PERCENTAGE },
                     margins: { top: 100, bottom: 100, left: 100, right: 100 },
-                    children: [new Paragraph({ children: [new TextRun({ text: item.url, color: "2563EB", underline: {} })] })],
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new ExternalHyperlink({
+                            children: [
+                              new TextRun({ text: item.url, color: "2563EB", underline: {} })
+                            ],
+                            link: item.url
+                          })
+                        ]
+                      })
+                    ],
                   }),
                 ],
               })

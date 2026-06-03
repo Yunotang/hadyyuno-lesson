@@ -10,10 +10,10 @@ import { EditorModal } from './components/EditorModal';
 import { PasswordModal } from './components/PasswordModal';
 import { ExportModal } from './components/ExportModal';
 import { mockCourses } from './data/mockData';
-import { Menu, X, Settings2, Loader2, Download, Users } from 'lucide-react';
+import { Menu, X, Settings2, Loader2, Download, Users, Trophy, MessageCircle, AlertCircle, Sparkles } from 'lucide-react';
 import { Course } from './types';
 import { getItem, setItem } from './lib/db';
-import { fetchFromCloud, syncToCloud, logout, saveLessonToCloud, useVisitorStats } from './lib/firebase';
+import { fetchFromCloud, syncToCloud, logout, saveLessonToCloud, useVisitorStats, useSystemSettings } from './lib/firebase';
 
 export default function App() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -28,6 +28,7 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   
   const { totalVisits } = useVisitorStats();
+  const { settings } = useSystemSettings();
 
 // Load data asynchronously on mount
   useEffect(() => {
@@ -227,6 +228,81 @@ export default function App() {
       {mobileMenuOpen && (
         <div className="md:hidden fixed top-16 left-0 right-0 bg-[var(--c-surface)] border-b border-[var(--c-border)] shadow-lg z-40 max-h-[80vh] overflow-y-auto">
           <div className="p-4 space-y-4">
+            {/* Mobile Read Mode Buttons */}
+            {!editMode && (settings?.advancedWorksUrl || settings?.discussionForumUrl || settings?.globalPracticeMaterialUrl) && (
+              <div className="flex flex-col gap-2 pb-4 border-b border-[var(--c-border)]">
+                {settings?.globalPracticeMaterialUrl && (
+                  <a href={settings.globalPracticeMaterialUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-xl text-sm font-bold shadow-sm">
+                    <Download size={14} className="shrink-0" />
+                    <span className="tracking-wide">下載舊版共用檔案</span>
+                  </a>
+                )}
+                {settings?.advancedWorksUrl && (
+                  <a href={settings.advancedWorksUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold shadow-md shadow-indigo-500/20">
+                    <Trophy size={16} className="text-yellow-300 drop-shadow-sm shrink-0" />
+                    <span className="tracking-wide">同學作品區</span>
+                  </a>
+                )}
+                {settings?.discussionForumUrl && (
+                  <a href={settings.discussionForumUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-500/20">
+                    <MessageCircle size={16} className="text-white drop-shadow-sm shrink-0" />
+                    <span className="tracking-wide">Teams知識分享區</span>
+                  </a>
+                )}
+              </div>
+            )}
+            
+            {/* Mobile Global Materials */}
+            {!editMode && settings?.globalMaterials && settings.globalMaterials.length > 0 && (
+              <div className="pb-4 border-b border-[var(--c-border)]">
+                {(() => {
+                  const mats = settings.globalMaterials;
+                  const prepKeywords = ['課前', '安裝', '必讀', '懶人包', '準備', '須知'];
+                  const prepMaterials = mats.filter(m => prepKeywords.some(k => m.name.includes(k)));
+                  const regularMaterials = mats.filter(m => !prepKeywords.some(k => m.name.includes(k)));
+
+                  return (
+                    <div className="flex flex-col gap-2">
+                      {settings?.globalMaterialsDescription && (
+                        <div className="text-xs font-semibold text-slate-500 flex items-start px-2">
+                          <span className="leading-tight">{settings.globalMaterialsDescription}</span>
+                        </div>
+                      )}
+                      
+                      {prepMaterials.length > 0 && (
+                        <div className="bg-amber-50/50 border border-amber-200 rounded p-2 relative overflow-hidden">
+                          <h3 className="text-xs font-black text-amber-800 mb-2 flex items-center gap-1 tracking-wide"><Sparkles size={12} className="text-orange-500" /> 課前必備與安裝</h3>
+                          <div className="flex flex-col gap-1.5 w-full">
+                            {prepMaterials.map((m: any, i: number) => (
+                              <a key={m.id || i} href={m.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 w-full py-1.5 px-2 rounded bg-white hover:bg-amber-100/50 text-xs font-bold text-amber-800 border border-amber-200 shadow-sm">
+                                <Download size={14} className="shrink-0 text-orange-500" /> 
+                                <span className="flex-1 truncate">{m.name}</span>
+                                <span className="shrink-0 text-[10px] bg-red-500 text-white font-extrabold px-1.5 py-0.5 rounded ml-1">必讀</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {regularMaterials.length > 0 && (
+                        <div className="flex flex-col mt-1">
+                          {prepMaterials.length > 0 && <h3 className="text-xs font-extrabold text-slate-400 mb-1.5 ml-1 uppercase tracking-wider">📚 其他資源</h3>}
+                          <div className="flex flex-wrap gap-1.5 w-full">
+                            {regularMaterials.map((m: any, i: number) => (
+                              <a key={m.id || i} href={m.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 w-full py-1.5 px-2 bg-slate-50 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 rounded text-xs font-semibold shadow-sm overflow-hidden">
+                                <Download size={14} className="shrink-0" /> 
+                                <span className="truncate">{m.name}</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
             {sortedCourses.map((course) => (
               <div key={course.id}>
                 <div className={`mono-label mb-2 px-2 ${course.isVisible === false && editMode ? 'text-amber-500 opacity-60' : ''}`}>
@@ -252,6 +328,7 @@ export default function App() {
                 </div>
               </div>
             ))}
+            
           </div>
         </div>
       )}
