@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { EditorModal } from './EditorModal';
 import { Modal } from './Modal';
-import { Download, Maximize2, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, Maximize2, X, ChevronLeft, ChevronRight, ExternalLink, Info, Youtube, PlaySquare, PlayCircle, Video } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { MarkdownFlow } from './MarkdownFlow';
 
@@ -43,7 +43,10 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
   const [activePromptCategory, setActivePromptCategory] = useState<string>('練習1');
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
 
-  const normalizedSteps = lesson.steps && lesson.steps.length > 0 ? lesson.steps : [{
+  const normalizedSteps = lesson.steps && lesson.steps.length > 0 ? lesson.steps.map(step => ({
+    ...step,
+    enabledTabs: (step.enabledTabs && step.enabledTabs.length > 0) ? step.enabledTabs : ['slides', 'urls', 'commands', 'prompts', 'flow']
+  })) : [{
     id: 'legacy-step',
     title: lesson.flowTitle || '單元內容',
     slides: lesson.slides || [],
@@ -51,7 +54,7 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
     commands: lesson.commands || [],
     prompts: lesson.prompts || [],
     flowMarkdown: lesson.flowMarkdown || '',
-    enabledTabs: lesson.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'],
+    enabledTabs: (lesson.enabledTabs && lesson.enabledTabs.length > 0) ? lesson.enabledTabs : ['slides', 'urls', 'commands', 'prompts', 'flow'],
     tabOrder: lesson.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'],
     flowTitle: lesson.flowTitle
   }];
@@ -75,7 +78,7 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
   // Switch tab gracefully when changing steps
   useEffect(() => {
     if (!activeData) return;
-    const enabled = activeData.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'];
+    const enabled = (activeData.enabledTabs && activeData.enabledTabs.length > 0) ? activeData.enabledTabs : ['slides', 'urls', 'commands', 'prompts', 'flow'];
     const order = activeData.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'];
     const missing = (['slides', 'urls', 'commands', 'prompts', 'flow'] as const).filter(id => !order.includes(id as any));
     const fullOrder = [...order, ...missing];
@@ -96,7 +99,7 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
       id: "step-" + Date.now().toString(),
       title: '新教學步驟',
       slides: [], urls: [], commands: [], prompts: [], flowMarkdown: '',
-      enabledTabs: [] as any,
+      enabledTabs: ['slides', 'urls', 'commands', 'prompts', 'flow'] as any,
       tabOrder: ['slides', 'urls', 'commands', 'prompts', 'flow'] as any
     };
     onUpdateLesson({
@@ -106,6 +109,22 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
     setActiveStepId(newStep.id);
   };
   
+  const handleMoveStep = (index: number, direction: 'left' | 'right') => {
+    const newSteps = [...normalizedSteps];
+    if (direction === 'left' && index > 0) {
+      const temp = newSteps[index];
+      newSteps[index] = newSteps[index - 1];
+      newSteps[index - 1] = temp;
+    } else if (direction === 'right' && index < newSteps.length - 1) {
+      const temp = newSteps[index];
+      newSteps[index] = newSteps[index + 1];
+      newSteps[index + 1] = temp;
+    } else {
+      return;
+    }
+    onUpdateLesson({ ...lesson, steps: newSteps });
+  };
+
   const handleDeleteStep = (stepId: string) => {
     setDeleteStepConfirm(stepId);
   };
@@ -171,7 +190,7 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
 
   type TabType = typeof ALL_TABS[number]['id'];
 
-  const enabledTabs = activeData.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'];
+  const enabledTabs = (activeData.enabledTabs && activeData.enabledTabs.length > 0) ? activeData.enabledTabs : ['slides', 'urls', 'commands', 'prompts', 'flow'];
   const rawTabOrder = activeData.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'];
   const missingTabs = ALL_TABS.map(t => t.id).filter(id => !rawTabOrder.includes(id as TabType));
   const tabOrder = [...rawTabOrder, ...(missingTabs as TabType[])];
@@ -911,52 +930,122 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
             <Download size={18} strokeWidth={2.5} /> {isExportingWord ? '匯出中...' : '匯出目前的單元'}
           </button>
         </div>
-        {lesson.description && (
-          <p className="text-base font-medium text-[var(--c-text-muted)] mt-2 max-w-2xl">{lesson.description}</p>
+        {(lesson.description || (lesson.links && lesson.links.length > 0)) && (
+          <div className="mt-6 w-full flex flex-col gap-5">
+            {lesson.description && (
+              <div className="w-full p-5 bg-white border border-slate-200 shadow-sm rounded-2xl flex items-start gap-4">
+                <div className="mt-0.5 shrink-0 p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Info size={20} strokeWidth={2.5} />
+                </div>
+                <p className="text-[15px] pt-0.5 leading-relaxed font-semibold text-slate-700 whitespace-pre-line">{lesson.description}</p>
+              </div>
+            )}
+            
+            {lesson.links && lesson.links.length > 0 && (
+              <div className="w-full">
+                <div className="flex flex-wrap gap-3">
+                  {lesson.links.map((link, idx) => {
+                    const isYoutube = link.url.includes('youtube.com/watch') || link.url.includes('youtu.be/');
+
+                    return (
+                      <a 
+                        key={link.id || idx} 
+                        href={link.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="group flex items-center gap-3 px-4 py-2.5 bg-white border-2 border-slate-200 hover:border-indigo-400 hover:bg-slate-50 hover:shadow-md rounded-2xl transition-all shadow-sm outline-none"
+                      >
+                        <div className="bg-indigo-50 text-indigo-600 p-1.5 rounded-xl shadow-sm transition-colors border-b-2 border-indigo-200/50">
+                          {isYoutube ? (
+                             <Youtube size={16} strokeWidth={2.5} />
+                          ) : link.url.includes('video') || link.url.includes('mp4') ? (
+                            <Video size={16} strokeWidth={2.5} />
+                          ) : (
+                            <Link size={16} strokeWidth={2.5} />
+                          )}
+                        </div>
+                        <span className="text-[14px] font-bold text-slate-700 group-hover:text-indigo-800 transition-colors tracking-wide pr-1 flex items-center gap-2">
+                          {link.title}
+                          <ExternalLink size={12} className="text-slate-400 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" strokeWidth={3} />
+                        </span>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </header>
       {/* --- STEP TABS (Top Navigation) --- */}
-      <div className="flex flex-wrap items-end gap-2 mb-8 border-b-2 border-[var(--c-border)] relative z-10 w-full overflow-x-auto pt-2">
-        {normalizedSteps.map((step) => (
-          <div key={step.id} className="relative group flex items-center">
-            <button
-              onClick={() => setActiveStepId(step.id)}
-              className={`px-5 py-3 rounded-t-xl text-base font-bold transition-all border-2 border-b-0 ${activeStepId === step.id ? 'bg-white border-[var(--c-border)] text-[var(--c-accent)] shadow-[0_-4px_0_0_var(--c-accent)] translate-y-[2px] z-10' : 'bg-slate-50 border-transparent text-[var(--c-text-muted)] hover:bg-slate-200 hover:text-slate-700'}`}
-            >
-              {editMode && activeStepId === step.id ? (
-                <input
-                  type="text"
-                  value={step.title}
-                  autoFocus
-                  onFocus={(e) => e.target.select()}
-                  onChange={(e) => updateActiveStep({ title: e.target.value })}
-                  className="bg-transparent border-none outline-none font-bold text-[var(--c-accent)] w-32 focus:border-b focus:border-[var(--c-accent)]"
-                />
-              ) : (
-                <span>{step.title}</span>
-              )}
-            </button>
-            {editMode && activeStepId === step.id && normalizedSteps.length > 1 && (
-              <button 
-                onClick={() => handleDeleteStep(step.id)}
-                className="absolute right-1 top-1 text-slate-400 hover:text-red-500 z-20 p-1 bg-white rounded-full shadow-sm"
-                title="刪除步驟"
+      {(editMode || normalizedSteps.length > 1) && (
+        <div className="flex flex-wrap gap-2 items-center mb-6 bg-slate-50/80 rounded-2xl border-2 border-[var(--c-border)] w-full p-2.5 shadow-inner">
+          {normalizedSteps.map((step, index) => (
+            <div key={step.id} className="relative group shrink-0">
+              <button
+                onClick={() => setActiveStepId(step.id)}
+                className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all border-2 whitespace-nowrap flex items-center gap-1.5 ${activeStepId === step.id ? 'bg-white border-[var(--c-accent)] text-[var(--c-accent)] shadow-[0_3px_0_0_var(--c-accent)] -translate-y-0.5' : 'bg-white/50 border-transparent text-[var(--c-text-muted)] shadow-sm hover:bg-white hover:border-slate-200 hover:text-slate-700 hover:-translate-y-0.5 hover:shadow-md'}`}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                {editMode && activeStepId === step.id ? (
+                  <input
+                    type="text"
+                    value={step.title}
+                    autoFocus
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => updateActiveStep({ title: e.target.value })}
+                    className="bg-transparent border-none outline-none font-bold text-[var(--c-accent)] w-32 focus:border-b-2 focus:border-[var(--c-accent)]"
+                    title="編輯步驟名稱"
+                  />
+                ) : (
+                  <span>{step.title}</span>
+                )}
               </button>
-            )}
-          </div>
-        ))}
-        {editMode && (
-          <button
-            onClick={handleAddStep}
-            className="px-4 py-2.5 mb-1 rounded-xl bg-slate-100 text-[var(--c-text-muted)] hover:bg-[var(--c-accent)] hover:text-white transition-all shadow-sm flex items-center gap-1 font-bold text-sm ml-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-            新增步驟
-          </button>
-        )}
-      </div>
+              {editMode && activeStepId === step.id && (
+                <div className="absolute right-0 top-0 -translate-y-full translate-x-4 mb-1 flex items-center gap-1 z-20 bg-white p-1 rounded-xl shadow-lg border border-slate-200">
+                  {index > 0 && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleMoveStep(index, 'left'); }}
+                      className="text-slate-400 hover:text-indigo-500 p-1.5 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="向左移動"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                  )}
+                  {index < normalizedSteps.length - 1 && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleMoveStep(index, 'right'); }}
+                      className="text-slate-400 hover:text-indigo-500 p-1.5 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="向右移動"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                  )}
+                  {normalizedSteps.length > 1 && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDeleteStep(step.id); }}
+                      className="text-slate-400 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                      title="刪除步驟"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          {editMode && (
+            <button
+              onClick={handleAddStep}
+              className="shrink-0 whitespace-nowrap px-3 py-1.5 rounded-xl bg-slate-200/50 text-[var(--c-text-muted)] hover:bg-[var(--c-accent)] hover:text-white transition-all flex items-center gap-1.5 font-bold text-sm ml-1 border-2 border-dashed border-slate-300 hover:border-[var(--c-accent)]"
+            >
+              <div className="bg-white/50 rounded flex items-center justify-center w-5 h-5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              </div>
+              新增步驟
+            </button>
+          )}
+        </div>
+      )}
 
 
 

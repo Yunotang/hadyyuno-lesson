@@ -12,8 +12,8 @@ service cloud.firestore {
     function isAdmin() { 
       return request.auth != null && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.uid == "gMW0O9hTKAf0SBeW3ohFylT9LIo1" ||
-        ("email" in request.auth.token && request.auth.token.email == "hoyoboy0726@gmail.com")
+        request.auth.uid == "YOUR_ADMIN_UID" ||
+        ("email" in request.auth.token && request.auth.token.email == "YOUR_ADMIN_EMAIL")
       ); 
     }
 
@@ -92,7 +92,7 @@ service cloud.firestore {
 
     match /system/{docId} {
       allow read: if true;
-      allow write: if docId == 'stats';
+      allow write: if docId == 'stats' || (docId == 'settings' && isAdmin());
     }
   }
 }

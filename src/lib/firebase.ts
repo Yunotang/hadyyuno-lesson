@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, collection, onSnapshot, setDoc, deleteDoc, serverTimestamp, getDocs, query, where, writeBatch, increment } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Course, Lesson } from '../types';
+import { Course, Lesson, SystemSettings } from '../types';
 import { useState, useEffect } from 'react';
 
 export const app = initializeApp(firebaseConfig);
@@ -157,6 +157,9 @@ export const syncToCloud = async (courses: Course[]) => {
       if (c.practiceMaterialUrl !== undefined) {
         coursePayload.practiceMaterialUrl = c.practiceMaterialUrl;
       }
+      if (c.materials !== undefined) {
+        coursePayload.materials = c.materials;
+      }
       const cleanedCourse = removeUndefined(coursePayload);
       cleanedCourse.updatedAt = serverTimestamp();
       batch.set(courseDoc, cleanedCourse, { merge: true });
@@ -198,11 +201,15 @@ export const syncToCloud = async (courses: Course[]) => {
           flowTitle: l.flowTitle || '',
           enabledTabs: l.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'],
           tabOrder: l.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'],
+          links: l.links || [],
           steps: compressedSteps,
           updatedAt: serverTimestamp()
         };
         if (l.practiceMaterialUrl !== undefined) {
           lessonPayload.practiceMaterialUrl = l.practiceMaterialUrl;
+        }
+        if (l.materials !== undefined) {
+          lessonPayload.materials = l.materials;
         }
         
         const cleanedLesson = removeUndefined(lessonPayload);
@@ -294,6 +301,7 @@ export const fetchFromCloud = async (isAdmin: boolean = false): Promise<Course[]
         description: data.description,
         date: data.date,
         practiceMaterialUrl: data.practiceMaterialUrl,
+        materials: data.materials || [],
         order: data.order ?? 0,
         isVisible: data.isPublished !== false,
         lessons: []
@@ -351,6 +359,7 @@ export const fetchFromCloud = async (isAdmin: boolean = false): Promise<Course[]
           isVisible: l.isPublished !== false,
           order: l.order ?? 0,
           practiceMaterialUrl: l.practiceMaterialUrl,
+          materials: l.materials || [],
           slides: l.slides,
           commands: l.commands,
           prompts: l.prompts,
@@ -361,6 +370,7 @@ export const fetchFromCloud = async (isAdmin: boolean = false): Promise<Course[]
           flowTitle: l.flowTitle,
           enabledTabs: l.enabledTabs,
           tabOrder: l.tabOrder,
+          links: l.links,
           steps: recoveredSteps
         };
       }).sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -390,6 +400,9 @@ export const saveCourseToCloud = async (course: Course) => {
     };
     if (course.practiceMaterialUrl !== undefined) {
       savePayload.practiceMaterialUrl = course.practiceMaterialUrl;
+    }
+    if (course.materials !== undefined) {
+      savePayload.materials = course.materials;
     }
     const cleanedPayload = removeUndefined(savePayload);
     cleanedPayload.updatedAt = serverTimestamp();
@@ -474,11 +487,15 @@ export const compressImage = async (base64Str: string): Promise<string> => {
       flowTitle: lesson.flowTitle || '',
       enabledTabs: lesson.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'],
       tabOrder: lesson.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'],
+      links: lesson.links || [],
       steps: compressedSteps,
       updatedAt: serverTimestamp()
     };
     if (lesson.practiceMaterialUrl !== undefined) {
       savePayload.practiceMaterialUrl = lesson.practiceMaterialUrl;
+    }
+    if (lesson.materials !== undefined) {
+      savePayload.materials = lesson.materials;
     }
     
     // Firestore does not like `undefined`
@@ -516,6 +533,32 @@ export const deleteLessonFromCloud = async (lessonId: string) => {
     await deleteDoc(doc(db, 'lessons', lessonId));
   } catch (error) {
     handleFirestoreError(error, 'delete', `lessons/${lessonId}`);
+  }
+};
+
+export const useSystemSettings = () => {
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'system', 'settings'), (doc) => {
+      if (doc.exists()) {
+        setSettings(doc.data() as SystemSettings);
+      } else {
+        setSettings({});
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  return { settings };
+};
+
+export const saveSystemSettings = async (settings: SystemSettings) => {
+  if (isQuotaExhausted) return;
+  try {
+    await setDoc(doc(db, 'system', 'settings'), settings, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, 'update', 'system/settings');
   }
 };
 
