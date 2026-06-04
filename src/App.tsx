@@ -10,7 +10,7 @@ import { EditorModal } from './components/EditorModal';
 import { PasswordModal } from './components/PasswordModal';
 import { ExportModal } from './components/ExportModal';
 import { mockCourses } from './data/mockData';
-import { Menu, X, Settings2, Loader2, Download, Users, Trophy, MessageCircle, AlertCircle, Sparkles } from 'lucide-react';
+import { Menu, X, Settings2, Loader2, Download, Users, Trophy, MessageCircle, AlertCircle, Sparkles, MinusSquare, PlusSquare } from 'lucide-react';
 import { Course } from './types';
 import { getItem, setItem } from './lib/db';
 import { fetchFromCloud, syncToCloud, logout, saveLessonToCloud, useVisitorStats, useSystemSettings } from './lib/firebase';
@@ -21,6 +21,7 @@ export default function App() {
   const [activeLessonId, setActiveLessonId] = useState<string>('');
   
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileExpandedCourses, setMobileExpandedCourses] = useState<Record<string, boolean>>({});
   const [editMode, setEditMode] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -29,6 +30,15 @@ export default function App() {
   
   const { totalVisits } = useVisitorStats();
   const { settings } = useSystemSettings();
+
+  useEffect(() => {
+    if (activeLessonId) {
+      const course = courses.find(c => c.lessons.some(l => l.id === activeLessonId));
+      if (course) {
+        setMobileExpandedCourses(prev => ({ ...prev, [course.id]: true }));
+      }
+    }
+  }, [activeLessonId, courses]);
 
 // Load data asynchronously on mount
   useEffect(() => {
@@ -311,9 +321,16 @@ export default function App() {
 
             {sortedCourses.map((course) => (
               <div key={course.id}>
-                <div className={`mono-label mb-2 px-2 ${course.isVisible === false && editMode ? 'text-amber-500 opacity-60' : ''}`}>
-                  {course.title} {course.isVisible === false && editMode && '(已隱藏)'}
+                <div 
+                  className={`mono-label mb-2 px-2 flex items-center justify-between cursor-pointer ${course.isVisible === false && editMode ? 'text-amber-500 opacity-60' : ''}`}
+                  onClick={() => setMobileExpandedCourses(prev => ({ ...prev, [course.id]: !prev[course.id] }))}
+                >
+                  <span className="flex-1 truncate">{course.title} {course.isVisible === false && editMode && '(已隱藏)'}</span>
+                  <button className="text-[var(--c-text-muted)] p-1 -mr-1">
+                    {mobileExpandedCourses[course.id] ? <MinusSquare size={14} /> : <PlusSquare size={14} />}
+                  </button>
                 </div>
+                {mobileExpandedCourses[course.id] && (
                 <div className="space-y-1">
                   {course.lessons.map((lesson) => (
                     <button
@@ -332,6 +349,7 @@ export default function App() {
                     </button>
                   ))}
                 </div>
+                )}
               </div>
             ))}
             

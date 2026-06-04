@@ -247,7 +247,7 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
   };
 
   return (
-    <div className="w-80 border-r border-[var(--c-border)] bg-[var(--c-surface)] h-screen overflow-y-auto hidden md:flex flex-col sticky top-0 relative">
+    <div className="w-[360px] border-r border-[var(--c-border)] bg-[var(--c-surface)] h-screen overflow-y-auto hidden md:flex flex-col sticky top-0 relative">
       <div className="p-6 border-b-2 border-b-[var(--c-border)] sticky top-0 z-10 bg-[var(--c-surface)]">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3 text-[var(--c-text)]">
@@ -358,11 +358,25 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
                             const originalIndex = mats.findIndex(x => x.id === m.id);
                             return (
                               <div key={m.id || i} className="relative group grow max-w-full">
-                                <a href={m.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 w-full py-1 px-1.5 rounded bg-white hover:bg-amber-100/50 text-[11px] font-bold transition-all text-amber-800 border border-amber-200 shadow-sm">
+                                <a href={editMode ? '#' : m.url} onClick={(e) => editMode && e.preventDefault()} target={editMode ? '' : "_blank"} rel="noopener noreferrer" className="flex items-center gap-1 w-full py-1 px-1.5 rounded bg-white hover:bg-amber-100/50 text-[11px] font-bold transition-all text-amber-800 border border-amber-200 shadow-sm">
                                    <div className="flex items-center gap-1 truncate w-full min-w-0">
                                      <Download size={12} className="shrink-0 text-orange-500" /> 
-                                     <span className="truncate flex-1">{m.name}</span>
-                                     <span className="shrink-0 text-[8px] bg-red-500 text-white font-extrabold px-1 py-0.5 rounded ml-1">必讀</span>
+                                     <span className="truncate">{m.name}</span>
+                                     {m.remark && !editMode && <span className="text-[10px] text-orange-500 shrink-0">({m.remark})</span>}
+                                     {editMode && (
+                                       <input 
+                                         type="text" 
+                                         value={m.remark || ''} 
+                                         onChange={(e) => {
+                                           const newMats = [...(settings?.globalMaterials || [])];
+                                           newMats[originalIndex] = { ...newMats[originalIndex], remark: e.target.value };
+                                           saveSystemSettings({ ...settings, globalMaterials: newMats });
+                                         }}
+                                         className="w-16 min-w-0 bg-transparent border-b border-amber-300 outline-none text-amber-800 px-1 placeholder-amber-400 text-[10px]"
+                                         placeholder="備註說明"
+                                       />
+                                     )}
+                                     <span className="shrink-0 text-[8px] bg-red-500 text-white font-extrabold px-1 py-0.5 rounded ml-auto">必讀</span>
                                    </div>
                                 </a>
                                 {editMode && (
@@ -389,10 +403,24 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
                             const originalIndex = mats.findIndex(x => x.id === m.id);
                             return (
                               <div key={m.id || i} className="relative group shrink-0 max-w-full">
-                                <a href={m.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 w-full py-1 px-1.5 bg-slate-50 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-slate-600 rounded text-[11px] font-semibold transition-all shadow-sm outline-none shrink-0 min-w-[90px] justify-center">
-                                  <div className="flex items-center gap-1 truncate">
+                                <a href={editMode ? '#' : m.url} onClick={(e) => editMode && e.preventDefault()} target={editMode ? '' : "_blank"} rel="noopener noreferrer" className="flex items-center gap-1.5 w-full py-1 px-1.5 bg-slate-50 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-slate-600 rounded text-[11px] font-semibold transition-all shadow-sm outline-none shrink-0 min-w-[90px] justify-center">
+                                  <div className="flex items-center gap-1 w-full min-w-0 truncate">
                                     <Download size={10} className="shrink-0" /> 
-                                    <span className="truncate">{m.name}</span>
+                                    <span className="truncate flex-1">{m.name}</span>
+                                    {m.remark && !editMode && <span className="text-[10px] text-indigo-400 shrink-0">({m.remark})</span>}
+                                    {editMode && (
+                                      <input 
+                                        type="text" 
+                                        value={m.remark || ''} 
+                                        onChange={(e) => {
+                                          const newMats = [...(settings?.globalMaterials || [])];
+                                          newMats[originalIndex] = { ...newMats[originalIndex], remark: e.target.value };
+                                          saveSystemSettings({ ...settings, globalMaterials: newMats });
+                                        }}
+                                        className="w-16 min-w-0 bg-transparent border-b border-indigo-200 outline-none px-1 placeholder-indigo-300 text-[10px]"
+                                        placeholder="備註說明"
+                                      />
+                                    )}
                                   </div>
                                 </a>
                                 {editMode && (
@@ -666,5 +694,4 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
         </div>
       </Modal>
     </div>
-  );
-}
+  
