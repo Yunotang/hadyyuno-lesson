@@ -276,7 +276,10 @@ export default function App() {
                             {prepMaterials.map((m: any, i: number) => (
                               <a key={m.id || i} href={m.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 w-full py-1.5 px-2 rounded bg-white hover:bg-amber-100/50 text-xs font-bold text-amber-800 border border-amber-200 shadow-sm">
                                 <Download size={14} className="shrink-0 text-orange-500" /> 
-                                <span className="flex-1 truncate">{m.name}</span>
+                                <span className="flex-1 truncate">
+                                  {m.name}
+                                  {m.remark && <span className="text-[10px] text-orange-500 shrink-0 ml-1">({m.remark})</span>}
+                                </span>
                                 <span className="shrink-0 text-[10px] bg-red-500 text-white font-extrabold px-1.5 py-0.5 rounded ml-1">必讀</span>
                               </a>
                             ))}
@@ -291,7 +294,10 @@ export default function App() {
                             {regularMaterials.map((m: any, i: number) => (
                               <a key={m.id || i} href={m.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 w-full py-1.5 px-2 bg-slate-50 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 rounded text-xs font-semibold shadow-sm overflow-hidden">
                                 <Download size={14} className="shrink-0" /> 
-                                <span className="truncate">{m.name}</span>
+                                <span className="truncate">
+                                  {m.name}
+                                  {m.remark && <span className="text-[10px] text-indigo-400 shrink-0 ml-1">({m.remark})</span>}
+                                </span>
                               </a>
                             ))}
                           </div>
