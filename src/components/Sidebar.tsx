@@ -694,4 +694,5 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
         </div>
       </Modal>
     </div>
-  
+  );
+}
