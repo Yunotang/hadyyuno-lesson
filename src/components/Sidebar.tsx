@@ -1,4 +1,4 @@
-import { Book, ChevronRight, ChevronDown, GraduationCap, Plus, Trash2, Edit2, Eye, EyeOff, ArrowUp, ArrowDown, Download, Users, UserCheck, PlusSquare, MinusSquare, Cloud, Loader2, Sparkles, AlertCircle, Trophy, ExternalLink, MessageCircle } from 'lucide-react';
+import { Book, ChevronRight, ChevronDown, GraduationCap, Plus, Trash2, Edit2, Eye, EyeOff, ArrowUp, ArrowDown, Download, Users, UserCheck, PlusSquare, MinusSquare, Cloud, Loader2, Sparkles, AlertCircle, Trophy, ExternalLink, MessageCircle, MessageSquare, StickyNote } from 'lucide-react';
 import { Course, Lesson } from '../types';
 import { useState } from 'react';
 import React from 'react';
@@ -288,22 +288,35 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
                     className="w-full text-xs p-2 rounded-lg border border-slate-300 bg-white outline-none focus:border-[var(--c-accent)] transition-colors shadow-sm"
                   />
                 </div>
+                <div className="flex flex-col gap-1 w-full relative">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1"><StickyNote size={10} /> 給Hady回饋或敲碗 網址 (留空則隱藏)</label>
+                  <input 
+                    type="url" 
+                    placeholder="請貼上給Hady回饋或敲碗留言板的網址..." 
+                    value={settings?.messageBoardUrl || ''} 
+                    onChange={e => saveSystemSettings({ ...settings, messageBoardUrl: e.target.value })} 
+                    className="w-full text-xs p-2 rounded-lg border border-slate-300 bg-white outline-none focus:border-[var(--c-accent)] transition-colors shadow-sm"
+                  />
+                </div>
             </div>
           )}
 
           {/* Read Mode Buttons */}
-          {!editMode && (settings?.advancedWorksUrl || settings?.discussionForumUrl) && (
-            <div className="flex gap-2 mt-2 w-full">
+          {!editMode && (settings?.advancedWorksUrl || settings?.discussionForumUrl || settings?.messageBoardUrl) && (
+            <div className="flex gap-1.5 mt-3 w-full">
               {settings?.advancedWorksUrl && (
-                <a href={settings.advancedWorksUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 flex items-center justify-center gap-1 py-2 px-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl text-[11px] lg:text-xs font-bold transition-all shadow-md shadow-indigo-500/20 hover:shadow-lg hover:-translate-y-[1px] outline-none group/btn">
-                  <Trophy size={13} className="text-yellow-300 drop-shadow-sm group-hover/btn:scale-110 group-hover/btn:-rotate-6 transition-all shrink-0" />
-                  <span className="tracking-wide truncate">同學作品區</span>
+                <a href={settings.advancedWorksUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 flex items-center justify-center py-1.5 px-1 bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white rounded-md transition-all shadow-sm hover:shadow outline-none">
+                  <span className="text-[10px] font-bold truncate">同學作品區</span>
                 </a>
               )}
               {settings?.discussionForumUrl && (
-                <a href={settings.discussionForumUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 flex items-center justify-center gap-1 py-2 px-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-[11px] lg:text-xs font-bold transition-all shadow-md shadow-blue-500/20 hover:shadow-lg hover:-translate-y-[1px] outline-none group/btn">
-                  <MessageCircle size={13} className="text-white drop-shadow-sm group-hover/btn:scale-110 group-hover/btn:-rotate-6 transition-all shrink-0" />
-                  <span className="tracking-wide truncate">Teams知識分享區</span>
+                <a href={settings.discussionForumUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 flex items-center justify-center py-1.5 px-1 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-md transition-all shadow-sm hover:shadow outline-none">
+                  <span className="text-[10px] font-bold truncate">Teams知識分享</span>
+                </a>
+              )}
+              {settings?.messageBoardUrl && (
+                <a href={settings.messageBoardUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 flex items-center justify-center py-1.5 px-1 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-white rounded-md transition-all shadow-sm hover:shadow outline-none">
+                  <span className="text-[10px] font-bold truncate">給Hady回饋或敲碗</span>
                 </a>
               )}
             </div>
@@ -361,7 +374,21 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
                                 <a href={editMode ? '#' : m.url} onClick={(e) => editMode && e.preventDefault()} target={editMode ? '' : "_blank"} rel="noopener noreferrer" className="flex items-center gap-1 w-full py-1 px-1.5 rounded bg-white hover:bg-amber-100/50 text-[11px] font-bold transition-all text-amber-800 border border-amber-200 shadow-sm">
                                    <div className="flex items-center gap-1 truncate w-full min-w-0">
                                      <Download size={12} className="shrink-0 text-orange-500" /> 
-                                     <span className="truncate">{m.name}</span>
+                                     {editMode ? (
+                                       <input 
+                                         type="text" 
+                                         value={m.name} 
+                                         onChange={(e) => {
+                                           const newMats = [...(settings?.globalMaterials || [])];
+                                           newMats[originalIndex] = { ...newMats[originalIndex], name: e.target.value };
+                                           saveSystemSettings({ ...settings, globalMaterials: newMats });
+                                         }}
+                                         className="flex-1 min-w-0 bg-transparent border-b border-amber-300 outline-none text-amber-800 px-1 placeholder-amber-400"
+                                         placeholder="顯示名稱"
+                                       />
+                                     ) : (
+                                       <span className="truncate">{m.name}</span>
+                                     )}
                                      {m.remark && !editMode && <span className="text-[10px] text-orange-500 shrink-0">({m.remark})</span>}
                                      {editMode && (
                                        <input 
@@ -406,7 +433,21 @@ export function Sidebar({ courses, setCourses, activeLessonId, onSelectLesson, e
                                 <a href={editMode ? '#' : m.url} onClick={(e) => editMode && e.preventDefault()} target={editMode ? '' : "_blank"} rel="noopener noreferrer" className="flex items-center gap-1.5 w-full py-1 px-1.5 bg-slate-50 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-slate-600 rounded text-[11px] font-semibold transition-all shadow-sm outline-none shrink-0 min-w-[90px] justify-center">
                                   <div className="flex items-center gap-1 w-full min-w-0 truncate">
                                     <Download size={10} className="shrink-0" /> 
-                                    <span className="truncate flex-1">{m.name}</span>
+                                    {editMode ? (
+                                      <input 
+                                        type="text" 
+                                        value={m.name} 
+                                        onChange={(e) => {
+                                          const newMats = [...(settings?.globalMaterials || [])];
+                                          newMats[originalIndex] = { ...newMats[originalIndex], name: e.target.value };
+                                          saveSystemSettings({ ...settings, globalMaterials: newMats });
+                                        }}
+                                        className="flex-1 min-w-0 bg-transparent border-b border-indigo-200 outline-none px-1 placeholder-indigo-300"
+                                        placeholder="顯示名稱"
+                                      />
+                                    ) : (
+                                      <span className="truncate flex-1">{m.name}</span>
+                                    )}
                                     {m.remark && !editMode && <span className="text-[10px] text-indigo-400 shrink-0">({m.remark})</span>}
                                     {editMode && (
                                       <input 

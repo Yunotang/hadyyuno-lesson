@@ -973,7 +973,7 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
           </span>
         )}
         <div className="flex flex-wrap items-center gap-4 mb-2 mt-2">
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-[var(--c-text)]">{lesson.title}</h1>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-[var(--c-text)]">{lesson.title}</h1>
           <button 
             onClick={handleExportWord} 
             disabled={isExportingWord}

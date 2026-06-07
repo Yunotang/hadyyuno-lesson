@@ -100,9 +100,10 @@ export interface SystemSettings {
   globalPracticeMaterialUrl?: string; // legacy single file
   globalPracticeMaterialName?: string;
   globalMaterialsDescription?: string;
-  globalMaterials?: { id: string; name: string; url: string }[];
+  globalMaterials?: { id: string; name: string; url: string; remark?: string }[];
   advancedWorksUrl?: string;
   discussionForumUrl?: string;
+  messageBoardUrl?: string;
 }
 
 export interface Course {

@@ -1,12 +1,26 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, collection, onSnapshot, setDoc, deleteDoc, serverTimestamp, getDocs, query, where, writeBatch, increment } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
 import { Course, Lesson, SystemSettings } from '../types';
 import { useState, useEffect } from 'react';
 
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID
+};
+
+// Validate config to prevent white screen/crashes
+if (!firebaseConfig.apiKey) {
+  console.warn("Firebase configuration is missing. Please check your environment variables.");
+}
+
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); // MUST USE firestoreDatabaseId
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)'); 
 export const auth = getAuth(app);
 
 // Check offline capabilities / basic connectivity
@@ -31,8 +45,12 @@ export const loginWithGoogle = async () => {
       localStorage.setItem('google_drive_token', credential.accessToken);
       localStorage.setItem('google_drive_token_timestamp', Date.now().toString());
     }
-  } catch (err) {
-    console.error("Login failed", err);
+  } catch (err: any) {
+    if (err?.code === 'auth/popup-closed-by-user') {
+      console.log('Login popup closed by user.');
+    } else {
+      console.error("Login failed", err);
+    }
   }
 };
 
@@ -59,8 +77,12 @@ export const getDriveAccessToken = async (): Promise<string | null> => {
       localStorage.setItem('google_drive_token_timestamp', Date.now().toString());
       return credential.accessToken;
     }
-  } catch (err) {
-    console.error("Failed to get drive token", err);
+  } catch (err: any) {
+    if (err?.code === 'auth/popup-closed-by-user') {
+      console.log('Login popup closed by user during token fetch.');
+    } else {
+      console.error("Failed to get drive token", err);
+    }
   }
   return null;
 }

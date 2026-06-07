@@ -10,7 +10,7 @@ import { EditorModal } from './components/EditorModal';
 import { PasswordModal } from './components/PasswordModal';
 import { ExportModal } from './components/ExportModal';
 import { mockCourses } from './data/mockData';
-import { Menu, X, Settings2, Loader2, Download, Users, Trophy, MessageCircle, AlertCircle, Sparkles, MinusSquare, PlusSquare } from 'lucide-react';
+import { Menu, X, Settings2, Loader2, Download, Users, Trophy, MessageCircle, AlertCircle, Sparkles, MinusSquare, PlusSquare, StickyNote } from 'lucide-react';
 import { Course } from './types';
 import { getItem, setItem } from './lib/db';
 import { fetchFromCloud, syncToCloud, logout, saveLessonToCloud, useVisitorStats, useSystemSettings } from './lib/firebase';
@@ -239,24 +239,26 @@ export default function App() {
         <div className="md:hidden fixed top-16 left-0 right-0 bg-[var(--c-surface)] border-b border-[var(--c-border)] shadow-lg z-40 max-h-[80vh] overflow-y-auto">
           <div className="p-4 space-y-4">
             {/* Mobile Read Mode Buttons */}
-            {!editMode && (settings?.advancedWorksUrl || settings?.discussionForumUrl || settings?.globalPracticeMaterialUrl) && (
+            {!editMode && (settings?.advancedWorksUrl || settings?.discussionForumUrl || settings?.globalPracticeMaterialUrl || settings?.messageBoardUrl) && (
               <div className="flex flex-col gap-2 pb-4 border-b border-[var(--c-border)]">
                 {settings?.globalPracticeMaterialUrl && (
-                  <a href={settings.globalPracticeMaterialUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-xl text-sm font-bold shadow-sm">
-                    <Download size={14} className="shrink-0" />
+                  <a href={settings.globalPracticeMaterialUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center py-2 px-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-lg text-[13px] font-bold shadow-sm transition-all text-center">
                     <span className="tracking-wide">下載舊版共用檔案</span>
                   </a>
                 )}
                 {settings?.advancedWorksUrl && (
-                  <a href={settings.advancedWorksUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold shadow-md shadow-indigo-500/20">
-                    <Trophy size={16} className="text-yellow-300 drop-shadow-sm shrink-0" />
+                  <a href={settings.advancedWorksUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center py-2.5 px-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg text-[13px] font-bold shadow-sm transition-all text-center">
                     <span className="tracking-wide">同學作品區</span>
                   </a>
                 )}
                 {settings?.discussionForumUrl && (
-                  <a href={settings.discussionForumUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-500/20">
-                    <MessageCircle size={16} className="text-white drop-shadow-sm shrink-0" />
+                  <a href={settings.discussionForumUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center py-2.5 px-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-lg text-[13px] font-bold shadow-sm transition-all text-center">
                     <span className="tracking-wide">Teams知識分享區</span>
+                  </a>
+                )}
+                {settings?.messageBoardUrl && (
+                  <a href={settings.messageBoardUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center py-2.5 px-3 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-white rounded-lg text-[13px] font-bold shadow-sm transition-all text-center">
+                    <span className="tracking-wide">給Hady回饋或敲碗</span>
                   </a>
                 )}
               </div>
