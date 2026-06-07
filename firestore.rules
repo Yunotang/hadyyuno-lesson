@@ -84,5 +84,15 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == userId;
       // Do not allow creating admins from client SDK.
     }
+
+    match /online_sessions/{sessionId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /system/{docId} {
+      allow read: if true;
+      allow write: if docId == 'stats' || (docId == 'settings' && isAdmin());
+    }
   }
 }

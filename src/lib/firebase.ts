@@ -1,11 +1,26 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer, collection, onSnapshot, setDoc, deleteDoc, serverTimestamp, getDocs, query, where, writeBatch } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
-import { Course, Lesson } from '../types';
+import { getFirestore, doc, getDocFromServer, collection, onSnapshot, setDoc, deleteDoc, serverTimestamp, getDocs, query, where, writeBatch, increment } from 'firebase/firestore';
+import { Course, Lesson, SystemSettings } from '../types';
+import { useState, useEffect } from 'react';
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID
+};
+
+// Validate config to prevent white screen/crashes
+if (!firebaseConfig.apiKey) {
+  console.warn("Firebase configuration is missing. Please check your environment variables.");
+}
 
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); // MUST USE firestoreDatabaseId
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)'); 
 export const auth = getAuth(app);
 
 // Check offline capabilities / basic connectivity
@@ -30,8 +45,12 @@ export const loginWithGoogle = async () => {
       localStorage.setItem('google_drive_token', credential.accessToken);
       localStorage.setItem('google_drive_token_timestamp', Date.now().toString());
     }
-  } catch (err) {
-    console.error("Login failed", err);
+  } catch (err: any) {
+    if (err?.code === 'auth/popup-closed-by-user') {
+      console.log('Login popup closed by user.');
+    } else {
+      console.error("Login failed", err);
+    }
   }
 };
 
@@ -58,8 +77,12 @@ export const getDriveAccessToken = async (): Promise<string | null> => {
       localStorage.setItem('google_drive_token_timestamp', Date.now().toString());
       return credential.accessToken;
     }
-  } catch (err) {
-    console.error("Failed to get drive token", err);
+  } catch (err: any) {
+    if (err?.code === 'auth/popup-closed-by-user') {
+      console.log('Login popup closed by user during token fetch.');
+    } else {
+      console.error("Failed to get drive token", err);
+    }
   }
   return null;
 }
@@ -81,11 +104,14 @@ export interface FirestoreErrorInfo {
   }
 }
 
-export function handleFirestoreError(error: any, operationType: FirestoreErrorInfo['operationType'], path: string | null = null) {
+export let isQuotaExhausted = false;
+
+function handleFirestoreError(error: any, operationType: FirestoreErrorInfo['operationType'], path: string | null = null) {
   if (operationType !== 'get' && operationType !== 'list') {
     if (error?.message && error.message.includes('size')) {
       alert('儲存失敗！單個課程內容超出容量限制 (1MB)。請嘗試縮減圖片數量或解析度。');
     } else if (error?.code === 'resource-exhausted' || (error?.message && error.message.includes('Quota'))) {
+      isQuotaExhausted = true;
       console.error("Firestore quota exceeded:", error);
       // Let the application continue working offline/locally instead of spamming alerts.
       // We log it quietly since continuous editing shouldn't be blocked.
@@ -119,21 +145,46 @@ export function handleFirestoreError(error: any, operationType: FirestoreErrorIn
   throw error;
 }
 
+const removeUndefined = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefined);
+  } else if (obj !== null && typeof obj === 'object' && !(obj instanceof Date) && obj.constructor.name === 'Object') {
+    const result: any = {};
+    for (const key in obj) {
+      if (obj[key] !== undefined) {
+        result[key] = removeUndefined(obj[key]);
+      }
+    }
+    return result;
+  }
+  return obj;
+};
+
 export const syncToCloud = async (courses: Course[]) => {
+  if (isQuotaExhausted) return;
   // Save every course and lesson to Firestore via batch to respect limits
   try {
     const batch = writeBatch(db);
     
     for (const c of courses) {
       const courseDoc = doc(db, 'courses', c.id);
-      batch.set(courseDoc, {
+      const coursePayload: any = {
         title: c.title,
         description: c.description || '',
         date: c.date || '',
         order: c.order ?? 0,
         isPublished: c.isVisible !== false,
         updatedAt: serverTimestamp()
-      }, { merge: true });
+      };
+      if (c.practiceMaterialUrl !== undefined) {
+        coursePayload.practiceMaterialUrl = c.practiceMaterialUrl;
+      }
+      if (c.materials !== undefined) {
+        coursePayload.materials = c.materials;
+      }
+      const cleanedCourse = removeUndefined(coursePayload);
+      cleanedCourse.updatedAt = serverTimestamp();
+      batch.set(courseDoc, cleanedCourse, { merge: true });
 
       for (const l of c.lessons) {
         const compressedSlides = await Promise.all((l.slides || []).map(async (slide) => {
@@ -142,9 +193,19 @@ export const syncToCloud = async (courses: Course[]) => {
             imageUrl: slide.imageUrl ? await compressImage(slide.imageUrl) : slide.imageUrl
           };
         }));
+        
+        const compressedSteps = await Promise.all((l.steps || []).map(async (step) => {
+          return {
+            ...step,
+            slides: await Promise.all((step.slides || []).map(async (slide) => ({
+              ...slide,
+              imageUrl: slide.imageUrl ? await compressImage(slide.imageUrl) : slide.imageUrl
+            })))
+          };
+        }));
 
         const lessonDoc = doc(db, 'lessons', l.id);
-        batch.set(lessonDoc, {
+        const lessonPayload: any = {
           courseId: c.id,
           title: l.title,
           description: l.description || '',
@@ -162,9 +223,20 @@ export const syncToCloud = async (courses: Course[]) => {
           flowTitle: l.flowTitle || '',
           enabledTabs: l.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'],
           tabOrder: l.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'],
-          steps: l.steps || [],
+          links: l.links || [],
+          steps: compressedSteps,
           updatedAt: serverTimestamp()
-        }, { merge: true });
+        };
+        if (l.practiceMaterialUrl !== undefined) {
+          lessonPayload.practiceMaterialUrl = l.practiceMaterialUrl;
+        }
+        if (l.materials !== undefined) {
+          lessonPayload.materials = l.materials;
+        }
+        
+        const cleanedLesson = removeUndefined(lessonPayload);
+        cleanedLesson.updatedAt = serverTimestamp();
+        batch.set(lessonDoc, cleanedLesson, { merge: true });
       }
     }
 
@@ -173,6 +245,17 @@ export const syncToCloud = async (courses: Course[]) => {
   } catch (error) {
     handleFirestoreError(error, 'write', 'courses_lessons_batch');
   }
+};
+
+export const fixDriveThumbnailUrl = (url?: string) => {
+  if (!url) return url;
+  if (url.includes('drive.google.com/uc') && url.includes('id=')) {
+    const match = url.match(/id=([^&]+)/);
+    if (match && match[1]) {
+      return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w2560`;
+    }
+  }
+  return url;
 };
 
 export const fetchFromCloud = async (isAdmin: boolean = false): Promise<Course[]> => {
@@ -240,36 +323,79 @@ export const fetchFromCloud = async (isAdmin: boolean = false): Promise<Course[]
         description: data.description,
         date: data.date,
         practiceMaterialUrl: data.practiceMaterialUrl,
+        materials: data.materials || [],
         order: data.order ?? 0,
         isVisible: data.isPublished !== false,
         lessons: []
       };
     });
 
-    const fetchedLessons = lessonsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const fetchedLessons = lessonsSnap.docs.map(doc => {
+      const data = doc.data();
+      if (data.slides) {
+        data.slides = data.slides.map((s: any) => ({ ...s, imageUrl: fixDriveThumbnailUrl(s.imageUrl) }));
+      }
+      if (data.steps) {
+        data.steps = data.steps.map((step: any) => {
+          if (step.slides) {
+            step.slides = step.slides.map((s: any) => ({ ...s, imageUrl: fixDriveThumbnailUrl(s.imageUrl) }));
+          }
+          return step;
+        });
+      }
+      return { id: doc.id, ...data };
+    });
 
     fetchedCourses.forEach(course => {
-      course.lessons = fetchedLessons.filter((l: any) => l.courseId === course.id).map((l: any) => ({
-        id: l.id,
-        title: l.title,
-        description: l.description,
-        date: l.date,
-        isFeatured: l.isFeatured,
-        isVisible: l.isPublished !== false,
-        order: l.order ?? 0,
-        practiceMaterialUrl: l.practiceMaterialUrl,
-        slides: l.slides,
-        commands: l.commands,
-        prompts: l.prompts,
-        urls: l.urls,
-        flowNodes: l.flowNodes,
-        flowEdges: l.flowEdges,
-        flowMarkdown: l.flowMarkdown,
-        flowTitle: l.flowTitle,
-        enabledTabs: l.enabledTabs,
-        tabOrder: l.tabOrder,
-        steps: l.steps
-      })).sort((a, b) => (a.order || 0) - (b.order || 0));
+      course.lessons = fetchedLessons.filter((l: any) => l.courseId === course.id).map((l: any) => {
+        // --- DATA RECOVERY LOGIC ---
+        // If there's a step with id 'legacy-step' (or it's the only step) and it's missing data, but legacy fields have data, restore it.
+        let recoveredSteps = l.steps || [];
+        const legacyIndex = recoveredSteps.findIndex((s: any) => s.id === 'legacy-step' || recoveredSteps.length === 1);
+        if (legacyIndex !== -1) {
+           const step = recoveredSteps[legacyIndex];
+           const hasLegacyData = (l.slides?.length > 0 || l.commands?.length > 0 || l.urls?.length > 0 || l.prompts?.length > 0);
+           const isStepEmpty = (!step.slides?.length && !step.commands?.length && !step.urls?.length && !step.prompts?.length);
+           if (hasLegacyData && isStepEmpty) {
+               console.log(`Recovering data for lesson: ${l.title}`);
+               recoveredSteps[legacyIndex] = {
+                   ...step,
+                   slides: l.slides || [],
+                   commands: l.commands || [],
+                   prompts: l.prompts || [],
+                   urls: l.urls || [],
+                   flowMarkdown: l.flowMarkdown || '',
+                   flowTitle: l.flowTitle || '',
+                   enabledTabs: l.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'],
+                   tabOrder: l.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow']
+               };
+           }
+        }
+        
+        return {
+          id: l.id,
+          title: l.title,
+          description: l.description,
+          date: l.date,
+          isFeatured: l.isFeatured,
+          isVisible: l.isPublished !== false,
+          order: l.order ?? 0,
+          practiceMaterialUrl: l.practiceMaterialUrl,
+          materials: l.materials || [],
+          slides: l.slides,
+          commands: l.commands,
+          prompts: l.prompts,
+          urls: l.urls,
+          flowNodes: l.flowNodes,
+          flowEdges: l.flowEdges,
+          flowMarkdown: l.flowMarkdown,
+          flowTitle: l.flowTitle,
+          enabledTabs: l.enabledTabs,
+          tabOrder: l.tabOrder,
+          links: l.links,
+          steps: recoveredSteps
+        };
+      }).sort((a, b) => (a.order || 0) - (b.order || 0));
     });
 
     // Sort courses initially
@@ -283,6 +409,7 @@ export const fetchFromCloud = async (isAdmin: boolean = false): Promise<Course[]
 };
 
 export const saveCourseToCloud = async (course: Course) => {
+  if (isQuotaExhausted) return;
   try {
     const courseDoc = doc(db, 'courses', course.id);
     const savePayload: any = {
@@ -296,7 +423,12 @@ export const saveCourseToCloud = async (course: Course) => {
     if (course.practiceMaterialUrl !== undefined) {
       savePayload.practiceMaterialUrl = course.practiceMaterialUrl;
     }
-    await setDoc(courseDoc, savePayload, { merge: true });
+    if (course.materials !== undefined) {
+      savePayload.materials = course.materials;
+    }
+    const cleanedPayload = removeUndefined(savePayload);
+    cleanedPayload.updatedAt = serverTimestamp();
+    await setDoc(courseDoc, cleanedPayload, { merge: true });
   } catch (error) {
     handleFirestoreError(error, 'update', `courses/${course.id}`);
   }
@@ -339,11 +471,22 @@ export const compressImage = async (base64Str: string): Promise<string> => {
 };
 
   export const saveLessonToCloud = async (lesson: Lesson, courseId: string) => {
+  if (isQuotaExhausted) return;
   try {
     const compressedSlides = await Promise.all((lesson.slides || []).map(async (slide) => {
       return {
         ...slide,
         imageUrl: slide.imageUrl ? await compressImage(slide.imageUrl) : slide.imageUrl
+      };
+    }));
+
+    const compressedSteps = await Promise.all((lesson.steps || []).map(async (step) => {
+      return {
+        ...step,
+        slides: await Promise.all((step.slides || []).map(async (slide) => ({
+          ...slide,
+          imageUrl: slide.imageUrl ? await compressImage(slide.imageUrl) : slide.imageUrl
+        })))
       };
     }));
 
@@ -366,19 +509,30 @@ export const compressImage = async (base64Str: string): Promise<string> => {
       flowTitle: lesson.flowTitle || '',
       enabledTabs: lesson.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'],
       tabOrder: lesson.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'],
-      steps: lesson.steps || [],
+      links: lesson.links || [],
+      steps: compressedSteps,
       updatedAt: serverTimestamp()
     };
     if (lesson.practiceMaterialUrl !== undefined) {
       savePayload.practiceMaterialUrl = lesson.practiceMaterialUrl;
     }
-    await setDoc(lessonDoc, savePayload, { merge: true });
+    if (lesson.materials !== undefined) {
+      savePayload.materials = lesson.materials;
+    }
+    
+    // Firestore does not like `undefined`
+    const cleanedPayload = removeUndefined(savePayload);
+    cleanedPayload.updatedAt = serverTimestamp(); // Restore timestamp because removeUndefined might mangle or flatten custom objects if not careful, though it handles objects fine, it's safer. Wait, Firebase FieldValue isn't a plain Object.
+    // wait, our removeUndefined ignores non-plain objects `obj.constructor.name === 'Object'`, but FieldValue constructor name is `FieldValue`. Yes, it should be safe.
+    
+    await setDoc(lessonDoc, cleanedPayload, { merge: true });
   } catch (error) {
     handleFirestoreError(error, 'update', `lessons/${lesson.id}`);
   }
 };
 
 export const deleteCourseFromCloud = async (courseId: string) => {
+  if (isQuotaExhausted) return;
   try {
     const batch = writeBatch(db);
     batch.delete(doc(db, 'courses', courseId));
@@ -396,9 +550,67 @@ export const deleteCourseFromCloud = async (courseId: string) => {
 };
 
 export const deleteLessonFromCloud = async (lessonId: string) => {
+  if (isQuotaExhausted) return;
   try {
     await deleteDoc(doc(db, 'lessons', lessonId));
   } catch (error) {
     handleFirestoreError(error, 'delete', `lessons/${lessonId}`);
   }
+};
+
+export const useSystemSettings = () => {
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'system', 'settings'), (doc) => {
+      if (doc.exists()) {
+        setSettings(doc.data() as SystemSettings);
+      } else {
+        setSettings({});
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  return { settings };
+};
+
+export const saveSystemSettings = async (settings: SystemSettings) => {
+  if (isQuotaExhausted) return;
+  try {
+    await setDoc(doc(db, 'system', 'settings'), settings, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, 'update', 'system/settings');
+  }
+};
+
+export const recordVisit = async () => {
+  if (!sessionStorage.getItem('visited')) {
+    sessionStorage.setItem('visited', '1');
+    try {
+      await setDoc(doc(db, 'system', 'stats'), { totalVisits: increment(1) }, { merge: true });
+    } catch (e) {
+      // silently fail if permission denied or offline
+    }
+  }
+};
+
+export const useVisitorStats = () => {
+  const [totalVisits, setTotalVisits] = useState(0);
+
+  useEffect(() => {
+    recordVisit();
+
+    const unsubStats = onSnapshot(doc(db, 'system', 'stats'), (doc) => {
+      if (doc.exists()) {
+        setTotalVisits(doc.data().totalVisits || 0);
+      }
+    });
+
+    return () => {
+      unsubStats();
+    }
+  }, []);
+
+  return { totalVisits };
 };

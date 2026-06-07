@@ -21,8 +21,6 @@
 
 body {
   background-color: var(--c-bg);
-  background-image: radial-gradient(#CBD5E1 1px, transparent 1px);
-  background-size: 24px 24px; /* Playful dot grid background */
   color: var(--c-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;

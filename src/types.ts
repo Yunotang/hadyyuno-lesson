@@ -64,15 +64,23 @@ export interface LessonStep {
   tabOrder?: TabType[];
 }
 
+export interface LessonLink {
+  id: string;
+  title: string;
+  url: string;
+}
+
 export interface Lesson {
   id: string;
   title: string;
   description?: string;
+  links?: LessonLink[];
   date?: string;
   isFeatured?: boolean;
   isVisible?: boolean;
   order?: number;
   practiceMaterialUrl?: string;
+  materials?: { id: string; name: string; url: string }[];
   steps?: LessonStep[];
   
   // Legacy properties (will be migrated to steps inside the app)
@@ -88,6 +96,16 @@ export interface Lesson {
   flowTitle?: string;
 }
 
+export interface SystemSettings {
+  globalPracticeMaterialUrl?: string; // legacy single file
+  globalPracticeMaterialName?: string;
+  globalMaterialsDescription?: string;
+  globalMaterials?: { id: string; name: string; url: string; remark?: string }[];
+  advancedWorksUrl?: string;
+  discussionForumUrl?: string;
+  messageBoardUrl?: string;
+}
+
 export interface Course {
   id: string;
   title: string;
@@ -96,5 +114,6 @@ export interface Course {
   isVisible?: boolean;
   order?: number;
   practiceMaterialUrl?: string;
+  materials?: { id: string; name: string; url: string }[];
   lessons: Lesson[];
 }

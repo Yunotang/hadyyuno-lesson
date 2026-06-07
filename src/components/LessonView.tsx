@@ -1,12 +1,12 @@
 import { motion } from 'motion/react';
-import { Terminal, Lightbulb, Presentation, Edit2, Trash2, Plus, LayoutList, Upload, Eye, EyeOff, Link, ArrowLeft, ArrowRight, Waypoints, FileText } from 'lucide-react';
+import { Terminal, Lightbulb, Presentation, Edit2, Trash2, Plus, LayoutList, Upload, Eye, EyeOff, Link, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Waypoints, FileText } from 'lucide-react';
 import { Lesson } from '../types';
 import { CopyButton } from './CopyButton';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { EditorModal } from './EditorModal';
 import { Modal } from './Modal';
-import { Download, Maximize2, X } from 'lucide-react';
+import { Download, Maximize2, X, ChevronLeft, ChevronRight, ExternalLink, Info, Youtube, PlaySquare, PlayCircle, Video } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { MarkdownFlow } from './MarkdownFlow';
 
@@ -36,13 +36,17 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
 
   const [modalConfig, setModalConfig] = useState<{ isOpen: boolean; type: any; initialData?: any; listKey?: string }>({ isOpen: false, type: null });
   const [deleteConfirm, setDeleteConfirm] = useState<{ listKey: string, id: string } | null>(null);
+  const [deleteStepConfirm, setDeleteStepConfirm] = useState<string | null>(null);
   const [activeStepId, setActiveStepId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'slides' | 'urls' | 'commands' | 'prompts' | 'flow'>('slides');
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [activePromptCategory, setActivePromptCategory] = useState<string>('練習1');
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
 
-  const normalizedSteps = lesson.steps && lesson.steps.length > 0 ? lesson.steps : [{
+  const normalizedSteps = lesson.steps && lesson.steps.length > 0 ? lesson.steps.map(step => ({
+    ...step,
+    enabledTabs: (step.enabledTabs && step.enabledTabs.length > 0) ? step.enabledTabs : ['slides', 'urls', 'commands', 'prompts', 'flow']
+  })) : [{
     id: 'legacy-step',
     title: lesson.flowTitle || '單元內容',
     slides: lesson.slides || [],
@@ -50,7 +54,7 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
     commands: lesson.commands || [],
     prompts: lesson.prompts || [],
     flowMarkdown: lesson.flowMarkdown || '',
-    enabledTabs: lesson.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'],
+    enabledTabs: (lesson.enabledTabs && lesson.enabledTabs.length > 0) ? lesson.enabledTabs : ['slides', 'urls', 'commands', 'prompts', 'flow'],
     tabOrder: lesson.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'],
     flowTitle: lesson.flowTitle
   }];
@@ -74,12 +78,16 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
   // Switch tab gracefully when changing steps
   useEffect(() => {
     if (!activeData) return;
-    const tabs = activeData.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'];
+    const enabled = (activeData.enabledTabs && activeData.enabledTabs.length > 0) ? activeData.enabledTabs : ['slides', 'urls', 'commands', 'prompts', 'flow'];
+    const order = activeData.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'];
+    const missing = (['slides', 'urls', 'commands', 'prompts', 'flow'] as const).filter(id => !order.includes(id as any));
+    const fullOrder = [...order, ...missing];
     
-    // Switch to the first tab (usually slides) by default when switching steps, 
-    // to satisfy "為何沒有立刻跳出簡報畫面? 還要按一次?"
-    if (tabs.length > 0) {
-       setActiveTab(tabs[0] as any);
+    // We want the visually FIRST tab that is actually enabled
+    const firstEnabledTab = fullOrder.find(id => enabled.includes(id as any));
+    
+    if (firstEnabledTab) {
+       setActiveTab(firstEnabledTab as any);
     } else {
       setActiveTab('slides');
     }
@@ -101,13 +109,39 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
     setActiveStepId(newStep.id);
   };
   
-  const handleDeleteStep = (stepId: string) => {
-    if (confirm('確定要刪除此教學步驟與所有內部資料嗎？')) {
-      const newSteps = normalizedSteps.filter(s => s.id !== stepId);
-      onUpdateLesson({ ...lesson, steps: newSteps.length ? newSteps : [{
-        id: "step-" + Date.now().toString(), title: '單元內容', slides: [], urls: [], commands: [], prompts: []
-      } as any] });
+  const handleMoveStep = (index: number, direction: 'left' | 'right') => {
+    const newSteps = [...normalizedSteps];
+    if (direction === 'left' && index > 0) {
+      const temp = newSteps[index];
+      newSteps[index] = newSteps[index - 1];
+      newSteps[index - 1] = temp;
+    } else if (direction === 'right' && index < newSteps.length - 1) {
+      const temp = newSteps[index];
+      newSteps[index] = newSteps[index + 1];
+      newSteps[index + 1] = temp;
+    } else {
+      return;
     }
+    onUpdateLesson({ ...lesson, steps: newSteps });
+  };
+
+  const handleDeleteStep = (stepId: string) => {
+    setDeleteStepConfirm(stepId);
+  };
+
+  const executeDeleteStep = () => {
+    if (!deleteStepConfirm) return;
+    const newSteps = normalizedSteps.filter(s => s.id !== deleteStepConfirm);
+    const updatedSteps = newSteps.length ? newSteps : [{
+      id: "step-" + Date.now().toString(), title: '單元內容', slides: [], urls: [], commands: [], prompts: []
+    } as any];
+    
+    onUpdateLesson({ ...lesson, steps: updatedSteps });
+    
+    if (activeStepId === deleteStepConfirm) {
+      setActiveStepId(updatedSteps[0].id);
+    }
+    setDeleteStepConfirm(null);
   };
 
   const visibleSlides = editMode ? activeData.slides : activeData.slides?.filter(s => s.isVisible !== false) || [];
@@ -142,6 +176,8 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
       }
     }
   }, [visiblePrompts, activeTab, activePromptCategory]);
+  const currentDisplaySlides = visibleSlides?.filter(s => s.category === activeCategory || (!s.category && activeCategory === '未分類')) || [];
+
   const [isExportingWord, setIsExportingWord] = useState(false);
 
   const ALL_TABS = [
@@ -154,15 +190,19 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
 
   type TabType = typeof ALL_TABS[number]['id'];
 
-  const enabledTabs = activeData.enabledTabs || ['slides', 'urls', 'commands', 'prompts', 'flow'];
-  const tabOrder = activeData.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'];
+  const enabledTabs = (activeData.enabledTabs && activeData.enabledTabs.length > 0) ? activeData.enabledTabs : ['slides', 'urls', 'commands', 'prompts', 'flow'];
+  const rawTabOrder = activeData.tabOrder || ['slides', 'urls', 'commands', 'prompts', 'flow'];
+  const missingTabs = ALL_TABS.map(t => t.id).filter(id => !rawTabOrder.includes(id as TabType));
+  const tabOrder = [...rawTabOrder, ...(missingTabs as TabType[])];
+  
   const displayTabs = tabOrder.map(id => ALL_TABS.find(t => t.id === id)).filter((t): t is typeof ALL_TABS[number] => t !== undefined && t.id !== 'flow');
 
   useEffect(() => {
-    if (!editMode && enabledTabs.length > 0 && !enabledTabs.includes(activeTab as TabType)) {
-      setActiveTab(enabledTabs[0] as TabType);
+    const currentVisibleTabs = editMode ? displayTabs : displayTabs.filter(t => enabledTabs.includes(t.id as TabType));
+    if (currentVisibleTabs.length > 0 && !currentVisibleTabs.find(t => t.id === activeTab)) {
+      setActiveTab(currentVisibleTabs[0].id as TabType);
     }
-  }, [editMode, enabledTabs.join(','), activeTab]);
+  }, [editMode, enabledTabs.join(','), activeTab, displayTabs.map(t=>t.id).join(',')]);
 
   const isTabVisible = (tabId: TabType) => {
     if (editMode) return true;
@@ -199,16 +239,30 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
     updateActiveStep({ enabledTabs: newTabs });
   };
 
-  // Escape key to close modal
+  const allGallerySlides = normalizedSteps.flatMap(s => 
+    (s.slides || []).map(slide => ({ ...slide, stepTitle: s.title }))
+  ).filter(s => editMode || s.isVisible !== false);
+  const currentImageIndex = enlargedImage ? allGallerySlides.findIndex(s => s.imageUrl === enlargedImage) : -1;
+
+  // Escape key to close modal and arrows to navigate
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && enlargedImage) {
+      if (!enlargedImage) return;
+      if (e.key === 'Escape') {
         setEnlargedImage(null);
+      } else if (e.key === 'ArrowLeft') {
+        if (currentImageIndex > 0) {
+          setEnlargedImage(allGallerySlides[currentImageIndex - 1].imageUrl);
+        }
+      } else if (e.key === 'ArrowRight') {
+        if (currentImageIndex !== -1 && currentImageIndex < allGallerySlides.length - 1) {
+          setEnlargedImage(allGallerySlides[currentImageIndex + 1].imageUrl);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lesson?.id, enlargedImage]);
+  }, [enlargedImage, currentImageIndex, allGallerySlides]);
 
   const handleDownloadImage = async (url: string, title: string) => {
     try {
@@ -251,6 +305,22 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
     setDeleteConfirm({ listKey, id });
   };
 
+  const handleMove = (listKey: keyof Lesson, id: string, direction: 'up' | 'down') => {
+    const list = [...(activeData[listKey as keyof typeof activeData] || [])] as any[];
+    const index = list.findIndex(item => item.id === id);
+    if (index === -1) return;
+    
+    if (direction === 'up' && index > 0) {
+      [list[index - 1], list[index]] = [list[index], list[index - 1]];
+    } else if (direction === 'down' && index < list.length - 1) {
+      [list[index], list[index + 1]] = [list[index + 1], list[index]];
+    } else {
+      return;
+    }
+    
+    updateActiveStep({ [listKey]: list });
+  };
+
   const executeDelete = () => {
     if (!deleteConfirm) return;
     const { listKey, id } = deleteConfirm;
@@ -261,16 +331,56 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
 
   const generateWordBlob = async () => {
     const docx = await import('docx');
-    const { Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell, BorderStyle, WidthType, AlignmentType, ShadingType } = docx;
+    const { Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell, BorderStyle, WidthType, AlignmentType, ShadingType, ExternalHyperlink } = docx;
       
       const children: any[] = [
         new Paragraph({
           children: [
             new TextRun({ text: lesson.title, bold: true, size: 36 }),
           ],
-          spacing: { after: 200 },
+          spacing: { after: 100 },
         })
       ];
+
+      if (lesson.description) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: lesson.description, size: 24, color: "374151" })
+            ],
+            spacing: { after: 200 },
+          })
+        );
+      }
+
+      if (lesson.links && lesson.links.length > 0) {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: "相關影片/連結", bold: true, size: 28, color: "4F46E5" })],
+            spacing: { before: 100, after: 100 }
+          })
+        );
+        
+        lesson.links.forEach(link => {
+          if (link.url && link.title) {
+            children.push(
+              new Paragraph({
+                children: [
+                  new ExternalHyperlink({
+                    children: [
+                      new TextRun({ text: "▶ " + link.title, color: "2563EB", underline: {}, size: 24 })
+                    ],
+                    link: link.url
+                  })
+                ],
+                spacing: { before: 50, after: 100 },
+                indent: { left: 360 }
+              })
+            );
+          }
+        });
+        children.push(new Paragraph({ text: "", spacing: { after: 200 } }));
+      }
 
       for (const stepData of normalizedSteps) {
         if (normalizedSteps.length > 1) {
@@ -315,7 +425,7 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                 let imgType: 'png' | 'jpg' | 'gif' | 'bmp' | 'svg' = 'png';
                 
                 const lowerUrl = slide.imageUrl.toLowerCase();
-                if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || slide.imageUrl.startsWith('data:image/jpeg') || slide.imageUrl.includes('drive.google.com/thumbnail')) {
+                if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || slide.imageUrl.startsWith('data:image/jpeg') || slide.imageUrl.includes('drive.google.com/thumbnail') || slide.imageUrl.includes('drive.google.com/uc')) {
                   imgType = 'jpg';
                 } else if (lowerUrl.includes('.gif') || slide.imageUrl.startsWith('data:image/gif')) {
                   imgType = 'gif';
@@ -464,7 +574,18 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                   new TableCell({
                     width: { size: 70, type: WidthType.PERCENTAGE },
                     margins: { top: 100, bottom: 100, left: 100, right: 100 },
-                    children: [new Paragraph({ children: [new TextRun({ text: item.url, color: "2563EB", underline: {} })] })],
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new ExternalHyperlink({
+                            children: [
+                              new TextRun({ text: item.url, color: "2563EB", underline: {} })
+                            ],
+                            link: item.url
+                          })
+                        ]
+                      })
+                    ],
                   }),
                 ],
               })
@@ -846,12 +967,13 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
         {lesson.id.replace('l', '0')}
       </div>
       <header className="relative z-10 mb-8 flex flex-col items-start group">
-        <span className="mono-label mb-2 inline-block bg-[var(--c-accent)] text-white px-3 py-1 rounded-full text-[11px] uppercase border-2 border-[var(--c-accent-hover)] shadow-[0_2px_0_0_var(--c-accent-hover)]">
-          教學單元內容
-          {lesson.date && <span className="ml-2 pl-2 border-l-2 border-white/30">{lesson.date}</span>}
-        </span>
+        {lesson.date && (
+          <span className="mono-label mb-2 inline-block bg-[var(--c-accent)] text-white px-3 py-1 rounded-full text-[11px] uppercase border-2 border-[var(--c-accent-hover)] shadow-[0_2px_0_0_var(--c-accent-hover)]">
+            {lesson.date}
+          </span>
+        )}
         <div className="flex flex-wrap items-center gap-4 mb-2 mt-2">
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-[var(--c-text)]">{lesson.title}</h1>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-[var(--c-text)]">{lesson.title}</h1>
           <button 
             onClick={handleExportWord} 
             disabled={isExportingWord}
@@ -859,52 +981,122 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
             <Download size={18} strokeWidth={2.5} /> {isExportingWord ? '匯出中...' : '匯出目前的單元'}
           </button>
         </div>
-        {lesson.description && (
-          <p className="text-base font-medium text-[var(--c-text-muted)] mt-2 max-w-2xl">{lesson.description}</p>
+        {(lesson.description || (lesson.links && lesson.links.length > 0)) && (
+          <div className="mt-6 w-full flex flex-col gap-5">
+            {lesson.description && (
+              <div className="w-full p-5 bg-white border border-slate-200 shadow-sm rounded-2xl flex items-start gap-4">
+                <div className="mt-0.5 shrink-0 p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Info size={20} strokeWidth={2.5} />
+                </div>
+                <p className="text-[15px] pt-0.5 leading-relaxed font-semibold text-slate-700 whitespace-pre-line">{lesson.description}</p>
+              </div>
+            )}
+            
+            {lesson.links && lesson.links.length > 0 && (
+              <div className="w-full">
+                <div className="flex flex-wrap gap-3">
+                  {lesson.links.map((link, idx) => {
+                    const isYoutube = link.url.includes('youtube.com/watch') || link.url.includes('youtu.be/');
+
+                    return (
+                      <a 
+                        key={link.id || idx} 
+                        href={link.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="group flex items-center gap-3 px-4 py-2.5 bg-white border-2 border-slate-200 hover:border-indigo-400 hover:bg-slate-50 hover:shadow-md rounded-2xl transition-all shadow-sm outline-none"
+                      >
+                        <div className="bg-indigo-50 text-indigo-600 p-1.5 rounded-xl shadow-sm transition-colors border-b-2 border-indigo-200/50">
+                          {isYoutube ? (
+                             <Youtube size={16} strokeWidth={2.5} />
+                          ) : link.url.includes('video') || link.url.includes('mp4') ? (
+                            <Video size={16} strokeWidth={2.5} />
+                          ) : (
+                            <Link size={16} strokeWidth={2.5} />
+                          )}
+                        </div>
+                        <span className="text-[14px] font-bold text-slate-700 group-hover:text-indigo-800 transition-colors tracking-wide pr-1 flex items-center gap-2">
+                          {link.title}
+                          <ExternalLink size={12} className="text-slate-400 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" strokeWidth={3} />
+                        </span>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </header>
       {/* --- STEP TABS (Top Navigation) --- */}
-      <div className="flex flex-wrap items-end gap-2 mb-8 border-b-2 border-[var(--c-border)] relative z-10 w-full overflow-x-auto pt-2">
-        {normalizedSteps.map((step) => (
-          <div key={step.id} className="relative group flex items-center">
-            <button
-              onClick={() => setActiveStepId(step.id)}
-              className={`px-5 py-3 rounded-t-xl text-base font-bold transition-all border-2 border-b-0 ${activeStepId === step.id ? 'bg-white border-[var(--c-border)] text-[var(--c-accent)] shadow-[0_-4px_0_0_var(--c-accent)] translate-y-[2px] z-10' : 'bg-slate-50 border-transparent text-[var(--c-text-muted)] hover:bg-slate-200 hover:text-slate-700'}`}
-            >
-              {editMode && activeStepId === step.id ? (
-                <input
-                  type="text"
-                  value={step.title}
-                  autoFocus
-                  onFocus={(e) => e.target.select()}
-                  onChange={(e) => updateActiveStep({ title: e.target.value })}
-                  className="bg-transparent border-none outline-none font-bold text-[var(--c-accent)] w-32 focus:border-b focus:border-[var(--c-accent)]"
-                />
-              ) : (
-                <span>{step.title}</span>
-              )}
-            </button>
-            {editMode && activeStepId === step.id && normalizedSteps.length > 1 && (
-              <button 
-                onClick={() => handleDeleteStep(step.id)}
-                className="absolute right-1 top-1 text-slate-400 hover:text-red-500 z-20 p-1 bg-white rounded-full shadow-sm"
-                title="刪除步驟"
+      {(editMode || normalizedSteps.length > 1) && (
+        <div className="flex flex-wrap gap-2 items-center mb-6 bg-slate-50/80 rounded-2xl border-2 border-[var(--c-border)] w-full p-2.5 shadow-inner">
+          {normalizedSteps.map((step, index) => (
+            <div key={step.id} className="relative group shrink-0">
+              <button
+                onClick={() => setActiveStepId(step.id)}
+                className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all border-2 whitespace-nowrap flex items-center gap-1.5 ${activeStepId === step.id ? 'bg-white border-[var(--c-accent)] text-[var(--c-accent)] shadow-[0_3px_0_0_var(--c-accent)] -translate-y-0.5' : 'bg-white/50 border-transparent text-[var(--c-text-muted)] shadow-sm hover:bg-white hover:border-slate-200 hover:text-slate-700 hover:-translate-y-0.5 hover:shadow-md'}`}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                {editMode && activeStepId === step.id ? (
+                  <input
+                    type="text"
+                    value={step.title}
+                    autoFocus
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => updateActiveStep({ title: e.target.value })}
+                    className="bg-transparent border-none outline-none font-bold text-[var(--c-accent)] w-32 focus:border-b-2 focus:border-[var(--c-accent)]"
+                    title="編輯步驟名稱"
+                  />
+                ) : (
+                  <span>{step.title}</span>
+                )}
               </button>
-            )}
-          </div>
-        ))}
-        {editMode && (
-          <button
-            onClick={handleAddStep}
-            className="px-4 py-2.5 mb-1 rounded-xl bg-slate-100 text-[var(--c-text-muted)] hover:bg-[var(--c-accent)] hover:text-white transition-all shadow-sm flex items-center gap-1 font-bold text-sm ml-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-            新增步驟
-          </button>
-        )}
-      </div>
+              {editMode && activeStepId === step.id && (
+                <div className="absolute right-0 top-0 -translate-y-full translate-x-4 mb-1 flex items-center gap-1 z-20 bg-white p-1 rounded-xl shadow-lg border border-slate-200">
+                  {index > 0 && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleMoveStep(index, 'left'); }}
+                      className="text-slate-400 hover:text-indigo-500 p-1.5 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="向左移動"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                  )}
+                  {index < normalizedSteps.length - 1 && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleMoveStep(index, 'right'); }}
+                      className="text-slate-400 hover:text-indigo-500 p-1.5 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="向右移動"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                  )}
+                  {normalizedSteps.length > 1 && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDeleteStep(step.id); }}
+                      className="text-slate-400 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                      title="刪除步驟"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          {editMode && (
+            <button
+              onClick={handleAddStep}
+              className="shrink-0 whitespace-nowrap px-3 py-1.5 rounded-xl bg-slate-200/50 text-[var(--c-text-muted)] hover:bg-[var(--c-accent)] hover:text-white transition-all flex items-center gap-1.5 font-bold text-sm ml-1 border-2 border-dashed border-slate-300 hover:border-[var(--c-accent)]"
+            >
+              <div className="bg-white/50 rounded flex items-center justify-center w-5 h-5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              </div>
+              新增步驟
+            </button>
+          )}
+        </div>
+      )}
 
 
 
@@ -1010,7 +1202,7 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                   </div>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {(visibleSlides?.filter(s => s.category === activeCategory || (!s.category && activeCategory === '未分類'))).map((slide) => (
+                  {currentDisplaySlides.map((slide, index) => (
                     <div key={slide.id} className="flex flex-col gap-3">
                       <div className={`w-full ppt-frame group shadow-2xl relative overflow-hidden rounded-2xl ${slide.isVisible === false && editMode ? 'opacity-50 grayscale' : ''}`}>
                       <img 
@@ -1037,6 +1229,8 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                     </div>
                     {editMode && (
                       <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                        <button disabled={(activeData.slides?.findIndex(s => s.id === slide.id) ?? -1) <= 0} onClick={() => handleMove('slides', slide.id, 'up')} className="p-2 bg-white text-[var(--c-text)] hover:text-[var(--c-accent)] shadow-sm border border-[var(--c-border)] rounded-md disabled:opacity-30 disabled:cursor-not-allowed"><ArrowLeft size={14} /></button>
+                        <button disabled={(activeData.slides?.findIndex(s => s.id === slide.id) ?? -1) >= (activeData.slides?.length ?? 0) - 1} onClick={() => handleMove('slides', slide.id, 'down')} className="p-2 bg-white text-[var(--c-text)] hover:text-[var(--c-accent)] shadow-sm border border-[var(--c-border)] rounded-md disabled:opacity-30 disabled:cursor-not-allowed"><ArrowRight size={14} /></button>
                         <button onClick={() => toggleVisibility('slides', slide)} className="p-2 bg-white text-[var(--c-text)] hover:text-[var(--c-accent)] shadow-sm border border-[var(--c-border)] rounded-md" title={slide.isVisible === false ? '目前隱藏 (點擊發布)' : '目前發布 (點擊隱藏)'}>
                           {slide.isVisible === false ? <EyeOff size={14} className="text-amber-500" /> : <Eye size={14} className="text-emerald-500" />}
                         </button>
@@ -1132,6 +1326,8 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                             </div>
                             {editMode && (
                               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
+                                <button disabled={(activeData.urls?.findIndex(u => u.id === urlItem.id) ?? -1) <= 0} onClick={() => handleMove('urls', urlItem.id, 'up')} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"><ArrowUp size={16} /></button>
+                                <button disabled={(activeData.urls?.findIndex(u => u.id === urlItem.id) ?? -1) >= (activeData.urls?.length ?? 0) - 1} onClick={() => handleMove('urls', urlItem.id, 'down')} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"><ArrowDown size={16} /></button>
                                 <button onClick={() => toggleVisibility('urls', urlItem)} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-200 rounded-lg" title={urlItem.isVisible === false ? '目前隱藏 (點擊發布)' : '目前發布 (點擊隱藏)'}>
                                   {urlItem.isVisible === false ? <EyeOff size={16} className="text-amber-500" /> : <Eye size={16} className="text-emerald-500" />}
                                 </button>
@@ -1210,6 +1406,8 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                           <div className="flex items-center gap-3">
                             {editMode && (
                               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity mr-4">
+                                <button disabled={(activeData.commands?.findIndex(c => c.id === cmd.id) ?? -1) <= 0} onClick={() => handleMove('commands', cmd.id, 'up')} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"><ArrowUp size={16} /></button>
+                                <button disabled={(activeData.commands?.findIndex(c => c.id === cmd.id) ?? -1) >= (activeData.commands?.length ?? 0) - 1} onClick={() => handleMove('commands', cmd.id, 'down')} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"><ArrowDown size={16} /></button>
                                 <button onClick={() => toggleVisibility('commands', cmd)} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-200 rounded-lg" title={cmd.isVisible === false ? '目前隱藏 (點擊發布)' : '目前發布 (點擊隱藏)'}>
                                   {cmd.isVisible === false ? <EyeOff size={16} className="text-amber-500" /> : <Eye size={16} className="text-emerald-500" />}
                                 </button>
@@ -1313,6 +1511,8 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
                           <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-4">
                             {editMode && (
                               <div className="flex gap-2">
+                                <button disabled={(activeData.prompts?.findIndex(p => p.id === prompt.id) ?? -1) <= 0} onClick={() => handleMove('prompts', prompt.id, 'up')} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"><ArrowUp size={16} /></button>
+                                <button disabled={(activeData.prompts?.findIndex(p => p.id === prompt.id) ?? -1) >= (activeData.prompts?.length ?? 0) - 1} onClick={() => handleMove('prompts', prompt.id, 'down')} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"><ArrowDown size={16} /></button>
                                 <button onClick={() => toggleVisibility('prompts', prompt)} className="p-1.5 text-[var(--c-text-muted)] hover:text-[var(--c-accent)] hover:bg-slate-50 rounded" title={prompt.isVisible === false ? '目前隱藏 (點擊發布)' : '目前發布 (點擊隱藏)'}>
                                   {prompt.isVisible === false ? <EyeOff size={16} className="text-amber-500" /> : <Eye size={16} className="text-emerald-500" />}
                                 </button>
@@ -1383,6 +1583,32 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
         </div>
       </Modal>
 
+      <Modal
+        isOpen={deleteStepConfirm !== null}
+        onClose={() => setDeleteStepConfirm(null)}
+        title="確認刪除教學步驟"
+      >
+        <div className="space-y-4 pt-2">
+          <p className="text-[var(--c-text)] font-medium">
+            確定要刪除此教學步驟與所有內部資料嗎？此操作無法復原。
+          </p>
+          <div className="flex gap-3 justify-end pt-4">
+            <button
+              onClick={() => setDeleteStepConfirm(null)}
+              className="px-4 py-2 border-2 border-[var(--c-border)] rounded-lg text-sm font-bold text-[var(--c-text-muted)] hover:bg-slate-50 transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={executeDeleteStep}
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 border-2 border-red-600 rounded-lg text-sm font-bold text-white transition-colors"
+            >
+              確定刪除
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Image Fullscreen Modal */}
       {enlargedImage && createPortal(
         <div 
@@ -1404,12 +1630,44 @@ export function LessonView({ lesson, editMode, onUpdateLesson, courseTitle }: Le
               <X size={20} className="group-hover:rotate-90 transition-transform text-red-500 stroke-[3]" />
               <span className="hidden sm:inline">關閉 (Esc)</span>
             </button>
+
+            {currentImageIndex > 0 && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); setEnlargedImage(allGallerySlides[currentImageIndex - 1].imageUrl); }}
+                className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all z-[101] backdrop-blur-md border border-white/20 hover:scale-110 shadow-2xl group"
+                title="上一張 (Arrow Left)"
+              >
+                <ChevronLeft size={32} className="group-hover:-translate-x-1 transition-transform" />
+              </button>
+            )}
+
+            {currentImageIndex !== -1 && currentImageIndex < allGallerySlides.length - 1 && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); setEnlargedImage(allGallerySlides[currentImageIndex + 1].imageUrl); }}
+                className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all z-[101] backdrop-blur-md border border-white/20 hover:scale-110 shadow-2xl group"
+                title="下一張 (Arrow Right)"
+              >
+                <ChevronRight size={32} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+            )}
+
             <img 
               src={enlargedImage} 
-              className="max-w-full max-h-[85vh] object-contain drop-shadow-2xl rounded-lg"
+              className="max-w-[90vw] max-h-[85vh] object-contain drop-shadow-2xl rounded-lg pointer-events-auto"
               onClick={(e) => e.stopPropagation()}
               referrerPolicy="no-referrer"
             />
+            {currentImageIndex !== -1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none z-[101]">
+                <div className="px-6 py-2 bg-black/70 backdrop-blur-md rounded-full text-white text-lg font-bold shadow-xl border border-white/10 text-center max-w-2xl truncate">
+                  {allGallerySlides[currentImageIndex]?.stepTitle || '單元'} 
+                  {allGallerySlides[currentImageIndex]?.title ? ` - ${allGallerySlides[currentImageIndex].title}` : ''}
+                </div>
+                <div className="px-4 py-1.5 bg-black/50 backdrop-blur-md rounded-full text-white text-sm font-medium">
+                  {currentImageIndex + 1} / {allGallerySlides.length}
+                </div>
+              </div>
+            )}
           </div>
         </div>,
         document.body
